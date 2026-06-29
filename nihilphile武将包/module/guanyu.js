@@ -284,6 +284,9 @@
                 target.addSkill("nihil_duanyi2");
             }
         },
+        ai: {
+            directHit_ai: true,
+        },
         group: "nihil_duanyi2",
     },
 
