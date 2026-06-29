@@ -249,24 +249,29 @@
             const hs = target.getCards("h");
             if (!hs.length) return event.finish();
 
-            // 统一用 choosePlayerCard，队友可见、敌方暗置
-            const visible = get.attitude(player, target) > 0;
-            const result = await player.choosePlayerCard(target, "h", 1, get.prompt("nihil_duanyi", target), visible).forResult();
-            if (!result.bool || !result.cards.length) return event.finish();
+            let card;
+            if (player.isAI && player.isAI()) {
+                // AI 逻辑
+                if (get.attitude(player, target) > 0) return event.finish(); // 队友不发动
+                card = hs[Math.floor(Math.random() * hs.length)];            // 敌人随机盲选
+            } else {
+                // 人类逻辑
+                const visible = get.attitude(player, target) > 0;
+                const result = await player.choosePlayerCard(target, "h", 1, get.prompt("nihil_duanyi", target), visible).forResult();
+                if (!result.bool || !result.cards.length) return event.finish();
+                card = result.cards[0];
+            }
 
             player.logSkill("nihil_duanyi", target);
-            const card = result.cards[0];
 
             game.log(target, "被", player, "展示了", card);
             target.showCards([card]);
 
             const color = get.color(card, target);
             if (color === "red") {
-                // 红：获得之
                 await target.give([card], player);
                 game.log(player, "获得了", card);
             } else {
-                // 黑：扣置所有手牌 + 技能失效
                 const allHs = target.getCards("h");
                 if (allHs.length) {
                     const next = target.addToExpansion(allHs, "giveAuto", target);
