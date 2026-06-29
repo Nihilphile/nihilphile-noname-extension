@@ -1,7 +1,7 @@
 game.import("extension", function (lib, game, ui, get, ai, _status) {
     const EXT_DISPLAY_NAME = "Nihilphile";
     const EXT_NAME = (_status && _status.extension) || EXT_DISPLAY_NAME;
-    const MODULE_FILES = ["tia", "ycc", "guanyu"];
+    const MODULE_FILES = ["tia", "ycc", "guanyu", "binglangwei", "moxuluo"];
     const CHAR_FILES = ["pinyin", "intro", "index"];
 
     return {
