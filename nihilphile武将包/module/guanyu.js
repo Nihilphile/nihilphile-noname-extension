@@ -241,7 +241,6 @@
     nihil_duanyi: {
         audio: 2,
         trigger: { player: "useCardToPlayered" },
-        direct: true,
         filter(event, player) {
             return event.card && event.card.name === "sha" && event.target && event.target.countCards("h") > 0;
         },
@@ -250,20 +249,35 @@
             const hs = target.getCards("h");
             if (!hs.length) return event.finish();
 
-            // 随机展示一张手牌
-            const card = hs[Math.floor(Math.random() * hs.length)];
+            // 确认是否发动
+            const confirm = await player.chooseBool(get.prompt("nihil_duanyi"), "是否对" + get.translation(target) + "发动【断义】？")
+                .set("choice", get.attitude(player, target) < 0)
+                .forResult();
+            if (!confirm.bool) return event.finish();
+
+            player.logSkill("nihil_duanyi", target);
+
+            let card;
+            if (get.attitude(player, target) > 0) {
+                // 队友：明选一张展示
+                const result = await player.choosePlayerCard(target, "h", 1, get.prompt("nihil_duanyi", target), "visible").forResult();
+                if (!result.bool || !result.cards.length) return event.finish();
+                card = result.cards[0];
+            } else {
+                // 敌方/未知：随机
+                card = hs[Math.floor(Math.random() * hs.length)];
+            }
+
             game.log(target, "被", player, "展示了", card);
             target.showCards([card]);
 
             const color = get.color(card, target);
             if (color === "red") {
                 // 红：获得之
-                player.logSkill("nihil_duanyi", target);
                 await target.give([card], player);
                 game.log(player, "获得了", card);
             } else {
                 // 黑：扣置所有手牌 + 技能失效
-                player.logSkill("nihil_duanyi", target);
                 const allHs = target.getCards("h");
                 if (allHs.length) {
                     const next = target.addToExpansion(allHs, "giveAuto", target);
