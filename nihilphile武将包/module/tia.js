@@ -420,11 +420,7 @@ tia_ammo: {
             const cards = trigger.cards;
             if (!Array.isArray(cards)) return;
             for (const entityCard of cards) {
-                if (!entityCard || getAmmo(player).length >= MAX_AMMO) continue;
-                const result = await player.chooseBool(get.prompt("tia_daowu"), "是否将" + get.translation(entityCard) + "明置为一发弹药？")
-                    .set("choice", true)
-                    .forResult();
-                if (!result.bool) continue;
+                if (!entityCard) continue;
                 await game.cardsGotoSpecial(entityCard);
                 addAmmoFromCard(player, entityCard, true, "daowu");
                 player.logSkill("tia_daowu");
