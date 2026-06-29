@@ -35,18 +35,9 @@
             return player.countCards("hes", card => get.color(card, player) === "red") > 0;
         },
         prompt: "将一张红色牌当【杀】使用或打出",
-        ai: {
-            respondSha: true,
-        },
-        group: "nihil_wusheng_damage",
-    },
-
-    // 武圣·伤害+1（charlotte 子技能）
-    nihil_wusheng_damage: {
-        charlotte: true,
+        // 伤害+1：直接挂在 trigger 上，不用 group 子技能
         trigger: { source: "damageBegin1" },
         forced: true,
-        popup: false,
         filter(event, player) {
             if (!event.card || event.card.name !== "sha") return false;
             if (get.color(event.card) !== "red") return false;
@@ -54,12 +45,14 @@
             if (!num) return false;
             const X = Math.ceil(num / 3);
             if (!event.target) return false;
-            // debug log
-            game.log("#y【武圣】", "判定：点数=" + num + " X=" + X + " 目标体力=" + event.target.hp, event.target.hp > X ? "→伤害+1" : "→不触发");
+            game.log("#y【武圣】", "点数=" + num + " X=" + X + " 目标HP=" + event.target.hp, event.target.hp > X ? "→伤害+1" : "→不触发");
             return event.target.hp > X;
         },
         async content(event, trigger, player) {
             trigger.num++;
+        },
+        ai: {
+            respondSha: true,
         },
     },
 
