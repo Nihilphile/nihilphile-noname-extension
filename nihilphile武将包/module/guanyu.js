@@ -241,6 +241,7 @@
     nihil_duanyi: {
         audio: 2,
         trigger: { player: "useCardToPlayered" },
+        direct: true,
         filter(event, player) {
             return event.card && event.card.name === "sha" && event.target && event.target.countCards("h") > 0;
         },
@@ -248,12 +249,6 @@
             const target = trigger.target;
             const hs = target.getCards("h");
             if (!hs.length) return event.finish();
-
-            // 确认是否发动
-            const confirm = await player.chooseBool(get.prompt("nihil_duanyi"), "是否对" + get.translation(target) + "发动【断义】？")
-                .set("choice", get.attitude(player, target) < 0)
-                .forResult();
-            if (!confirm.bool) return event.finish();
 
             player.logSkill("nihil_duanyi", target);
 
@@ -288,6 +283,13 @@
                 target.addTempSkill("baiban");
                 target.addSkill("nihil_duanyi2");
             }
+        },
+        ai: {
+            result: {
+                target(player, target) {
+                    return get.attitude(player, target) < 0 ? 1 : 0;
+                },
+            },
         },
         group: "nihil_duanyi2",
     },
