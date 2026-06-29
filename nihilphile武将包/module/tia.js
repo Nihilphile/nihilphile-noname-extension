@@ -1,4 +1,17 @@
-import { lib, game, ui, get, ai, _status } from "noname";
+(function () {
+    if (typeof lib === "undefined") var lib = globalThis.lib;
+    if (typeof game === "undefined") var game = globalThis.game;
+    if (typeof ui === "undefined") var ui = globalThis.ui;
+    if (typeof get === "undefined") var get = globalThis.get;
+    if (typeof ai === "undefined") var ai = globalThis.ai;
+    if (typeof _status === "undefined") var _status = globalThis._status;
+
+    window.nihilModules = window.nihilModules || {};
+    var EXT_NAME = window.NIHIL_EXTENSION_NAME || "nihilphile武将包";
+
+    function image(id, ext) {
+        return "ext:" + EXT_NAME + "/image/character/" + id + "." + (ext || "png");
+    }
 
 const AMMO = "tia_ammo";
 const MAX_AMMO = 6;
@@ -107,17 +120,17 @@ async function darkLoad(player, source) {
     return true;
 }
 
-export const character = {
+var character = {
     tia_tiya: {
         sex: "female",
         group: "western",
         hp: 3,
         skills: ["tia_qiangli", "tia_rongguang", "tia_daowu"],
-        img: "extension/nihilphile/image/character/tia_tiya.png",
+        img: image("tia_tiya"),
     },
 };
 
-export const cards = {
+var cards = {
 tia_danyi: {
         type: "basic",
         enable: true,
@@ -151,7 +164,7 @@ tia_danyi: {
     },
 };
 
-export const skills = {
+var skills = {
 tia_ammo: {
         charlotte: true,
         mark: true,
@@ -428,11 +441,11 @@ tia_ammo: {
     },
 };
 
-export const title = {
+var title = {
     tia_tiya: "#g黑纱鸣礼",
 };
 
-export const translates = {
+var translates = {
 tia_tiya: "缇娅",
     tia_tiya_prefix: "黑纱鸣礼",
 
@@ -447,4 +460,14 @@ tia_tiya: "缇娅",
     tia_daowu_info: "当你成为伤害牌目标时，你的黑色手牌可以视为【杀】或者【闪】响应。每当你使用实体【杀】或【闪】响应伤害牌后，你可将此牌明置于武将牌上作为\"弹药\"，且此\"弹药\"击发而使用的【杀】改为【火杀】。",
 };
 
-export const sort = ["tia_tiya"];
+var sort = ["tia_tiya"];
+
+window.nihilModules["tia"] = {
+    character: character,
+    card: cards,
+    skill: skills,
+    translate: translates,
+    title: title,
+    sort: sort,
+};
+})();

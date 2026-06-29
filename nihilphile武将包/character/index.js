@@ -1,34 +1,60 @@
-import { lib, game, ui, get, ai, _status } from "noname";
-import { character as tiaChar, cards as tiaCards, skills as tiaSkills, title as tiaTitle, translates as tiaTranslates, sort as tiaSort } from "../module/tia.js";
-import { character as yccChar, skills as yccSkills, title as yccTitle, translates as yccTranslates, sort as yccSort } from "../module/ycc.js";
-import { character as gyChar, skills as gySkills, title as gyTitle, translates as gyTranslates, sort as gySort } from "../module/guanyu.js";
-import pinyins from "./pinyin.js";
-import characterIntro from "./intro.js";
+game.import("character", function (lib, game, ui, get, ai, _status) {
+    window.nihilModules = window.nihilModules || {};
 
-const characterSort = {
-    nihilphile_main: [...(gySort || []), ...(yccSort || []), ...(tiaSort || [])],
-};
-const characterSortTranslate = {
-    nihilphile_main: "Nihilphile",
-};
+    var modules = window.nihilModules;
+    var keys = Object.keys(modules);
+    var character = {};
+    var skill = {};
+    var card = {};
+    var translate = {
+        nihilphile: "Nihilphile",
+        nihilphile_main: "Nihilphile",
+    };
+    var characterTitle = {};
+    var characterIntro = {};
+    var pinyins = {};
+    var mainList = [];
 
-const mainList = [...(gySort || []), ...(yccSort || []), ...(tiaSort || [])];
+    for (var i = 0; i < keys.length; i++) {
+        var mod = modules[keys[i]];
+        if (!mod) continue;
+        if (typeof mod.init == "function") {
+            try {
+                mod.init(lib, game, ui, get, ai, _status);
+            } catch (e) {
+                if (game && game.print) game.print("nihilphile module init failed: " + keys[i] + " " + (e && e.message || e));
+            }
+        }
+        if (mod.character) Object.assign(character, mod.character);
+        if (mod.skill) Object.assign(skill, mod.skill);
+        if (mod.card) Object.assign(card, mod.card);
+        if (mod.translate) Object.assign(translate, mod.translate);
+        if (mod.title) Object.assign(characterTitle, mod.title);
+        if (Array.isArray(mod.sort)) {
+            for (var j = 0; j < mod.sort.length; j++) {
+                mainList.push(mod.sort[j]);
+            }
+        }
+    }
 
-game.import("character", function () {
+    // Load pinyin and intro from window globals (set by pinyin.js / intro.js)
+    if (window.nihilPinyins) Object.assign(pinyins, window.nihilPinyins);
+    if (window.nihilCharacterIntro) Object.assign(characterIntro, window.nihilCharacterIntro);
+
     return {
         name: "nihilphile",
         connect: true,
-        character: { ...gyChar, ...yccChar, ...tiaChar },
+        character: character,
+        skill: skill,
+        card: card,
+        translate: translate,
+        characterTitle: characterTitle,
+        characterIntro: characterIntro,
         characterSort: {
             nihilphile: {
                 nihilphile_main: mainList,
             },
         },
-        characterTitle: { ...gyTitle, ...yccTitle, ...tiaTitle },
-        characterIntro: { ...characterIntro },
-        card: { ...tiaCards },
-        skill: { ...gySkills, ...yccSkills, ...tiaSkills },
-        translate: { ...gyTranslates, ...yccTranslates, ...tiaTranslates, ...characterSortTranslate },
-        pinyins: { ...pinyins },
+        pinyins: pinyins,
     };
 });

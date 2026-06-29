@@ -1,4 +1,17 @@
-import { lib, game, ui, get, ai, _status } from "noname";
+(function () {
+    if (typeof lib === "undefined") var lib = globalThis.lib;
+    if (typeof game === "undefined") var game = globalThis.game;
+    if (typeof ui === "undefined") var ui = globalThis.ui;
+    if (typeof get === "undefined") var get = globalThis.get;
+    if (typeof ai === "undefined") var ai = globalThis.ai;
+    if (typeof _status === "undefined") var _status = globalThis._status;
+
+    window.nihilModules = window.nihilModules || {};
+    var EXT_NAME = window.NIHIL_EXTENSION_NAME || "nihilphile武将包";
+
+    function image(id, ext) {
+        return "ext:" + EXT_NAME + "/image/character/" + id + "." + (ext || "png");
+    }
 
 const YCC_SHA_CARD = { name: "sha", isCard: true };
 
@@ -204,17 +217,17 @@ function yccQinzhengShouldUse(player) {
     return (player.storage.ycc_qinzheng_no_support || 0) >= 3;
 }
 
-export const character = {
+var character = {
     ycc_yuchengchen: {
         sex: "male",
         group: "fu",
         hp: 4,
         skills: ["ycc_huangming", "ycc_yuce", "ycc_qinzheng"],
-        img: "extension/nihilphile/image/character/ycc_yuchengchen.jpg",
+        img: image("ycc_yuchengchen", "jpg"),
     },
 };
 
-export const skills = {
+var skills = {
 ycc_huangming: {
         audio: 2,
         trigger: { player: "useCardAfter" },
@@ -573,11 +586,11 @@ ycc_huangming: {
     
 };
 
-export const title = {
+var title = {
     ycc_yuchengchen: "#g瑞武帝",
 };
 
-export const translates = {
+var translates = {
 ycc_yuchengchen: "御承宸",
     ycc_yuchengchen_prefix: "ycc",
     ycc_huangming: "皇命",
@@ -591,7 +604,16 @@ ycc_yuchengchen: "御承宸",
     ycc_handlimit: "亲征",
     ycc_handlimit_info: "你的手牌上限+1。",
 
-    
+
 };
 
-export const sort = ["ycc_yuchengchen"];
+var sort = ["ycc_yuchengchen"];
+
+window.nihilModules["ycc"] = {
+    character: character,
+    skill: skills,
+    translate: translates,
+    title: title,
+    sort: sort,
+};
+})();

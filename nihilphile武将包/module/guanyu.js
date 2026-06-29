@@ -1,21 +1,34 @@
-import { lib, game, ui, get, ai, _status } from "noname";
+(function () {
+    if (typeof lib === "undefined") var lib = globalThis.lib;
+    if (typeof game === "undefined") var game = globalThis.game;
+    if (typeof ui === "undefined") var ui = globalThis.ui;
+    if (typeof get === "undefined") var get = globalThis.get;
+    if (typeof ai === "undefined") var ai = globalThis.ai;
+    if (typeof _status === "undefined") var _status = globalThis._status;
 
-// ============================================================
-//  关羽 — 仁锋断恶
-// ============================================================
+    window.nihilModules = window.nihilModules || {};
+    var EXT_NAME = window.NIHIL_EXTENSION_NAME || "nihilphile武将包";
 
-export const character = {
-    nihil_guanyu: {
-        sex: "male",
-        group: "shu",
-        hp: 4,
-        maxHp: 4,
-        skills: ["nihil_wusheng", "nihil_duanyi"],
-        img: "extension/nihilphile/image/character/nihil_guanyu.png",
-    },
-};
+    function image(id, ext) {
+        return "ext:" + EXT_NAME + "/image/character/" + id + "." + (ext || "png");
+    }
 
-export const skills = {
+    // ============================================================
+    //  关羽 — 仁锋断恶
+    // ============================================================
+
+    var character = {
+        nihil_guanyu: {
+            sex: "male",
+            group: "shu",
+            hp: 4,
+            maxHp: 4,
+            skills: ["nihil_wusheng", "nihil_duanyi"],
+            img: image("nihil_guanyu"),
+        },
+    };
+
+    var skills = {
     // ========== 武圣 ==========
     nihil_wusheng: {
         audio: 2,
@@ -136,23 +149,32 @@ export const skills = {
             },
         },
     },
-};
+    };
 
-export const title = {
-    nihil_guanyu: "#r仁锋断恶",
-};
+    var title = {
+        nihil_guanyu: "#r仁锋断恶",
+    };
 
-export const translates = {
-    nihil_guanyu: "关羽",
-    nihil_guanyu_prefix: "仁锋断恶",
+    var translates = {
+        nihil_guanyu: "关羽",
+        nihil_guanyu_prefix: "仁锋断恶",
 
-    nihil_wusheng: "武圣",
-    nihil_wusheng_info:
-        "你可将一张红色牌当【杀】使用或打出。你使用的红【杀】，对体力大于X的角色伤害+1。（X为此红【杀】点数/3，向上取整）",
+        nihil_wusheng: "武圣",
+        nihil_wusheng_info:
+            "你可将一张红色牌当【杀】使用或打出。你使用的红【杀】，对体力大于X的角色伤害+1。（X为此红【杀】点数/3，向上取整）",
 
-    nihil_duanyi: "断义",
-    nihil_duanyi_info:
-        "当一名角色成为你【杀】的目标时，你可展示其一张手牌（随机展示），若此牌为黑色，则扣置其所有手牌且所有技能失效直至本回合结束；若为红色，你获得之。",
-};
+        nihil_duanyi: "断义",
+        nihil_duanyi_info:
+            "当一名角色成为你【杀】的目标时，你可展示其一张手牌（随机展示），若此牌为黑色，则扣置其所有手牌且所有技能失效直至本回合结束；若为红色，你获得之。",
+    };
 
-export const sort = ["nihil_guanyu"];
+    var sort = ["nihil_guanyu"];
+
+    window.nihilModules["guanyu"] = {
+        character: character,
+        skill: skills,
+        translate: translates,
+        title: title,
+        sort: sort,
+    };
+})();
