@@ -205,7 +205,13 @@ function yccQinzhengShouldUse(player) {
 }
 
 export const character = {
-    ycc_yuchengchen: ["male", "fu", 4, ["ycc_huangming", "ycc_yuce", "ycc_qinzheng"]],
+    ycc_yuchengchen: {
+        sex: "male",
+        group: "fu",
+        hp: 4,
+        skills: ["ycc_huangming", "ycc_yuce", "ycc_qinzheng"],
+        img: "extension/nihilphile/image/character/ycc_yuchengchen.jpg",
+    },
 };
 
 export const skills = {

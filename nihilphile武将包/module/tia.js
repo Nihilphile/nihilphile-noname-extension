@@ -108,7 +108,13 @@ async function darkLoad(player, source) {
 }
 
 export const character = {
-    tia_tiya: ["female", "western", 3, ["tia_qiangli", "tia_rongguang", "tia_daowu"]],
+    tia_tiya: {
+        sex: "female",
+        group: "western",
+        hp: 3,
+        skills: ["tia_qiangli", "tia_rongguang", "tia_daowu"],
+        img: "extension/nihilphile/image/character/tia_tiya.png",
+    },
 };
 
 export const cards = {
