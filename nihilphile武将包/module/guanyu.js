@@ -48,9 +48,13 @@
         forced: true,
         popup: false,
         filter(event, player) {
-            // 临时：无条件通过，先确认 trigger 是否 fire
-            game.log("#y【武圣·damageBegin1】", "触发！card=" + (event.card ? event.card.name : "null"), "color=" + (event.card ? get.color(event.card) : "null"), "number=" + (event.card ? (get.number(event.card) || event.card.number) : "null"), "target=" + (event.target ? event.target.name : "null"), "hp=" + (event.target ? event.target.hp : "null"));
-            return true;
+            if (!event.card || event.card.name !== "sha") return false;
+            if (get.color(event.card) !== "red") return false;
+            const num = get.number(event.card) || event.card.number || 0;
+            if (!num) return false;
+            const X = Math.ceil(num / 3);
+            if (!event.target) return false;
+            return event.target.hp > X;
         },
         async content(event, trigger, player) {
             trigger.num++;
