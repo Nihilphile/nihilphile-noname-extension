@@ -289,16 +289,6 @@
                 target.addSkill("nihil_duanyi2");
             }
         },
-        ai: {
-            directHit_ai: true,
-            skillTagFilter(player, tag, arg) {
-                if (get.attitude(player, arg.target) > 0) return false;
-                if (tag === "directHit_ai") {
-                    return arg.target.hp >= Math.max(1, arg.target.countCards("h") - 1);
-                }
-                return false;
-            },
-        },
         group: "nihil_duanyi2",
     },
 
