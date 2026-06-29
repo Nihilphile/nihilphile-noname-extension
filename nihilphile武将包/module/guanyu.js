@@ -50,14 +50,16 @@
         filter(event, player) {
             if (!event.card || event.card.name !== "sha") return false;
             if (get.color(event.card) !== "red") return false;
-            const num = get.number(event.card);
-            if (typeof num !== "number") return false;
+            const num = get.number(event.card) || event.card.number || 0;
+            if (!num) return false;
             const X = Math.ceil(num / 3);
-            return event.target && event.target.hp > X;
+            if (!event.target) return false;
+            // debug log
+            game.log("#y【武圣】", "判定：点数=" + num + " X=" + X + " 目标体力=" + event.target.hp, event.target.hp > X ? "→伤害+1" : "→不触发");
+            return event.target.hp > X;
         },
         async content(event, trigger, player) {
             trigger.num++;
-            game.log(player, "触发了", "#y【武圣】", "伤害+1");
         },
     },
 
