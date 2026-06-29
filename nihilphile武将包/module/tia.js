@@ -10,7 +10,7 @@
     var EXT_NAME = window.NIHIL_EXTENSION_NAME || "nihilphile武将包";
 
     function image(id, ext) {
-        return "ext:" + EXT_NAME + "/image/character/" + id + "." + (ext || "png");
+        return "extension/" + EXT_NAME + "/image/character/" + id + "." + (ext || "png");
     }
 
 const AMMO = "tia_ammo";
