@@ -1,11 +1,4 @@
 (function () {
-    if (typeof lib === "undefined") var lib = globalThis.lib;
-    if (typeof game === "undefined") var game = globalThis.game;
-    if (typeof ui === "undefined") var ui = globalThis.ui;
-    if (typeof get === "undefined") var get = globalThis.get;
-    if (typeof ai === "undefined") var ai = globalThis.ai;
-    if (typeof _status === "undefined") var _status = globalThis._status;
-
     window.nihilModules = window.nihilModules || {};
     var EXT_NAME = window.NIHIL_EXTENSION_NAME || "nihilphile武将包";
 
