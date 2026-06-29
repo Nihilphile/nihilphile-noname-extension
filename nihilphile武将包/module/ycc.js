@@ -217,7 +217,25 @@ ycc_huangming: {
         },
         direct: true,
         async content(event, trigger, player) {
-            const originalTarget = trigger.targets[0];
+            // Single target: auto-select; multi-target: let ycc pick the "靶子"
+            let originalTarget;
+            if (trigger.targets.length === 1) {
+                originalTarget = trigger.targets[0];
+            } else {
+                const pickResult = await player
+                    .chooseTarget("皇命：请选择一个【杀】的目标作为靶子", (card, p, target) => {
+                        return trigger.targets.includes(target);
+                    })
+                    .set("ai", target => {
+                        // Prefer enemy with low hand
+                        const att = get.attitude(player, target);
+                        if (att >= 0) return -1;
+                        return 10 - target.countCards("h");
+                    })
+                    .forResult();
+                if (!pickResult.bool) return event.finish();
+                originalTarget = pickResult.targets[0];
+            }
             if (!originalTarget || !originalTarget.isIn()) return event.finish();
 
             // Helper: check if chosen character can use sha on the original target,
@@ -276,13 +294,14 @@ ycc_huangming: {
                 await player.discardPlayerCard(chosen, "h", true);
             }
 
-            // Choose another character (not Yuchenchen; original target is allowed per ruling)
+            // Choose another character (not Yuchenchen, not the original target)
             const result = await player
                 .chooseTarget(
                     get.prompt("ycc_huangming"),
                     "令一名其他角色选择一项执行",
                     (card, p, target) => {
                         if (target === p) return false;
+                        if (target === originalTarget) return false;
                         return canUseShaOn(target) || hasHandCards(target);
                     }
                 )
