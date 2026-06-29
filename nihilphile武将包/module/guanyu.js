@@ -48,13 +48,19 @@
         forced: true,
         popup: false,
         filter(event, player) {
-            if (!event.card || event.card.name !== "sha") return false;
-            if (get.color(event.card) !== "red") return false;
+            game.log("#y武圣·filter", "step1 card:", event.card ? event.card.name : "null");
+            if (!event.card || event.card.name !== "sha") { game.log("#y武圣·filter", "FAIL: not sha"); return false; }
+            game.log("#y武圣·filter", "step2 color:", get.color(event.card));
+            if (get.color(event.card) !== "red") { game.log("#y武圣·filter", "FAIL: not red"); return false; }
             const num = get.number(event.card) || event.card.number || 0;
-            if (!num) return false;
+            game.log("#y武圣·filter", "step3 num:", num, "type:", typeof num);
+            if (!num) { game.log("#y武圣·filter", "FAIL: no number"); return false; }
             const X = Math.ceil(num / 3);
-            if (!event.target) return false;
-            return event.target.hp > X;
+            game.log("#y武圣·filter", "step4 X:", X, "target:", event.player ? event.player.name : "null", "hp:", event.player ? event.player.hp : "null");
+            if (!event.player) { game.log("#y武圣·filter", "FAIL: no target"); return false; }
+            const result = event.player.hp > X;
+            game.log("#y武圣·filter", result ? "PASS →伤害+1" : "FAIL: hp(" + event.player.hp + ") <= X(" + X + ")");
+            return result;
         },
         async content(event, trigger, player) {
             trigger.num++;
@@ -67,7 +73,7 @@
         trigger: { player: "useCardToPlayered" },
         direct: true,
         filter(event, player) {
-            return event.card && event.card.name === "sha" && event.target.countCards("h") > 0;
+            return event.card && event.card.name === "sha" && event.player.countCards("h") > 0;
         },
         async content(event, trigger, player) {
             const target = trigger.target;
