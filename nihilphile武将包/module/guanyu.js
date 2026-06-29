@@ -241,7 +241,6 @@
     nihil_duanyi: {
         audio: 2,
         trigger: { player: "useCardToPlayered" },
-        direct: true,
         filter(event, player) {
             return event.card && event.card.name === "sha" && event.target && event.target.countCards("h") > 0;
         },
@@ -250,18 +249,13 @@
             const hs = target.getCards("h");
             if (!hs.length) return event.finish();
 
-            player.logSkill("nihil_duanyi", target);
+            // 统一用 choosePlayerCard，队友可见、敌方暗置
+            const visible = get.attitude(player, target) > 0;
+            const result = await player.choosePlayerCard(target, "h", 1, get.prompt("nihil_duanyi", target), visible).forResult();
+            if (!result.bool || !result.cards.length) return event.finish();
 
-            let card;
-            if (get.attitude(player, target) > 0) {
-                // 队友：明选一张展示
-                const result = await player.choosePlayerCard(target, "h", 1, get.prompt("nihil_duanyi", target), "visible").forResult();
-                if (!result.bool || !result.cards.length) return event.finish();
-                card = result.cards[0];
-            } else {
-                // 敌方/未知：随机
-                card = hs[Math.floor(Math.random() * hs.length)];
-            }
+            player.logSkill("nihil_duanyi", target);
+            const card = result.cards[0];
 
             game.log(target, "被", player, "展示了", card);
             target.showCards([card]);
@@ -283,9 +277,6 @@
                 target.addTempSkill("baiban");
                 target.addSkill("nihil_duanyi2");
             }
-        },
-        ai: {
-            directHit_ai: true,
         },
         group: "nihil_duanyi2",
     },
@@ -336,7 +327,7 @@
 
         nihil_duanyi: "断义",
         nihil_duanyi_info:
-            "当一名角色成为你【杀】的目标时，你可展示其一张手牌（随机展示），若此牌为黑色，则扣置其所有手牌且所有技能失效直至本回合结束；若为红色，你获得之。",
+            "当一名角色成为你【杀】的目标时，你可选择其一张手牌展示，若此牌为黑色，则扣置其所有手牌且所有技能失效直至本回合结束；若为红色，你获得之。（对队友可见展示，对敌方盲选）",
     };
 
     var sort = ["nihil_guanyu"];
