@@ -16,7 +16,7 @@
             group: "shu",
             hp: 4,
             maxHp: 4,
-            skills: ["nihil_wusheng", "nihil_duanyi"],
+            skills: ["nihil_wusheng", "nihil_wusheng_damage", "nihil_duanyi"],
             img: image("nihil_guanyu"),
         },
     };
@@ -35,9 +35,18 @@
             return player.countCards("hes", card => get.color(card, player) === "red") > 0;
         },
         prompt: "将一张红色牌当【杀】使用或打出",
-        // 伤害+1：直接挂在 trigger 上，不用 group 子技能
+        ai: {
+            respondSha: true,
+        },
+        group: "nihil_wusheng_damage",
+    },
+
+    // 武圣·伤害+1（显式注册在 skills 数组中）
+    nihil_wusheng_damage: {
+        charlotte: true,
         trigger: { source: "damageBegin1" },
         forced: true,
+        popup: false,
         filter(event, player) {
             if (!event.card || event.card.name !== "sha") return false;
             if (get.color(event.card) !== "red") return false;
@@ -50,9 +59,6 @@
         },
         async content(event, trigger, player) {
             trigger.num++;
-        },
-        ai: {
-            respondSha: true,
         },
     },
 
