@@ -1,33 +1,33 @@
 import { lib, game, ui, get, ai, _status } from "../../../noname.js";
-import characters from "./character.js";
-import cards from "./card.js";
+import { character as tiaChar, cards as tiaCards, skills as tiaSkills, title as tiaTitle, translates as tiaTranslates, sort as tiaSort } from "../module/tia.js";
+import { character as yccChar, skills as yccSkills, title as yccTitle, translates as yccTranslates, sort as yccSort } from "../module/ycc.js";
 import pinyins from "./pinyin.js";
-import skills from "./skill.js";
-import translates from "./translate.js";
-import characterIntros from "./intro.js";
-import characterFilters from "./characterFilter.js";
-import dynamicTranslates from "./dynamicTranslate.js";
-import voices from "./voices.js";
-import { characterSort, characterSortTranslate } from "./sort.js";
+import characterIntro from "./intro.js";
+
+const characterSort = {
+    nihilphile_main: [...(yccSort || []), ...(tiaSort || [])],
+};
+const characterSortTranslate = {
+    nihilphile_main: "Nihilphile",
+};
+
+const mainList = [...(yccSort || []), ...(tiaSort || [])];
 
 game.import("character", function () {
     return {
         name: "nihilphile",
         connect: true,
-        character: { ...characters },
+        character: { ...yccChar, ...tiaChar },
         characterSort: {
-            nihilphile: characterSort,
+            nihilphile: {
+                nihilphile_main: mainList,
+            },
         },
-        characterFilter: { ...characterFilters },
-        characterTitle: {
-            ycc_yuchengchen: "#g瑞武帝",
-            tia_tiya: "#g黑纱鸣礼",
-        },
-        dynamicTranslate: { ...dynamicTranslates },
-        characterIntro: { ...characterIntros },
-        card: { ...cards },
-        skill: { ...skills },
-        translate: { ...translates, ...voices, ...characterSortTranslate },
+        characterTitle: { ...yccTitle, ...tiaTitle },
+        characterIntro: { ...characterIntro },
+        card: { ...tiaCards },
+        skill: { ...yccSkills, ...tiaSkills },
+        translate: { ...yccTranslates, ...tiaTranslates, ...characterSortTranslate },
         pinyins: { ...pinyins },
     };
 });
