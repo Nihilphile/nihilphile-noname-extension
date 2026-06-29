@@ -284,13 +284,6 @@
                 target.addSkill("nihil_duanyi2");
             }
         },
-        ai: {
-            result: {
-                target(player, target) {
-                    return get.attitude(player, target) < 0 ? 1 : 0;
-                },
-            },
-        },
         group: "nihil_duanyi2",
     },
 
