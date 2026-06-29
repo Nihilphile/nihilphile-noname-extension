@@ -1,5 +1,3 @@
-import { lib, game, ui, get, ai, _status } from "../../../noname.js";
-
 const YCC_SHA_CARD = { name: "sha", isCard: true };
 
 function yccCardKeepValue(card, player) {
@@ -204,12 +202,9 @@ function yccQinzhengShouldUse(player) {
     return (player.storage.ycc_qinzheng_no_support || 0) >= 3;
 }
 
-export const character = {
-    ycc_yuchengchen: ["male", "fu", 4, ["ycc_huangming", "ycc_yuce", "ycc_qinzheng"]],
-};
-
-export const skills = {
-ycc_huangming: {
+/** @type { importCharacterConfig['skill'] } */
+const skills = {
+    ycc_huangming: {
         audio: 2,
         trigger: { player: "useCardAfter" },
         filter(event, player) {
@@ -449,124 +444,3 @@ ycc_huangming: {
         },
         onremove(player) {
             yccQinzhengResetWatch(player);
-        },
-    },
-
-    // 亲征 -> 手牌上限 +1 (permanent, independent skill)
-    ycc_handlimit: {
-        charlotte: true,
-        mod: {
-            maxHandcard(player, num) {
-                return num + 1;
-            },
-        },
-    },
-
-    // 龙殛
-    ycc_longji: {
-        audio: 2,
-        trigger: { player: "useCardToPlayered" },
-        forced: true,
-        filter(event, player) {
-            if (!event.card || event.card.name !== "sha") return false;
-            return true;
-        },
-        async content(event, trigger, player) {
-            const target = trigger.target;
-            if (!target || !target.isIn()) return;
-            if (!player.isIn()) return;
-
-            // Must show all hand cards
-            await target.showHandcards(get.translation(target) + "是" + get.translation(player) + "【杀】的目标，须展示所有手牌");
-
-            const cards = target.getCards("h");
-            if (!cards.length) return;
-
-            // Yuchenchen (player) selects one card to detain
-            const result = await player
-                .choosePlayerCard(target, "h", true, "visible", [1, 1])
-                .set("prompt", "龙殛：选择扣置" + get.translation(target) + "的一张手牌")
-                .set("ai", button => {
-                    // Take the most valuable card from enemies, least valuable from allies
-                    const val = get.value(button.link);
-                    if (get.attitude(player, target) > 0) return -val;
-                    return val;
-                })
-                .forResult();
-
-            if (!result.bool || !result.cards.length) return;
-
-            // Place card in target's own expansion
-            const next = target.addToExpansion(result.cards, player, "give");
-            next.gaintag = ["ycc_longji"];
-
-            // Ensure the return sub-skill is active on source (Yuchenchen)
-            if (!player.hasSkill("ycc_longji_return", null, null, false)) {
-                player.addSkill("ycc_longji_return");
-            }
-        },
-        onremove(player, skill) {
-            // When 龙殛 is removed, return all detained cards to their owners
-            const targets = game.filterPlayer(t => t.getExpansions("ycc_longji").length > 0);
-            for (const target of targets) {
-                const cards = target.getExpansions("ycc_longji");
-                if (cards.length > 0) {
-                    if (target.isIn() && !target.isDead()) {
-                        target.gain(cards, "gain2");
-                    } else {
-                        game.cardsDiscard(cards);
-                    }
-                }
-            }
-        },
-        subSkill: {
-            return: {
-                charlotte: true,
-                trigger: { global: "phaseAfter" },
-                forced: true,
-                filter(event, player) {
-                    // Check if any player has ycc_longji expansion cards to return
-                    return game.hasPlayer(t => t.getExpansions("ycc_longji").length > 0);
-                },
-                async content(event, trigger, player) {
-                    // Return detained cards for each target, separately
-                    const targets = game.filterPlayer(t => t.getExpansions("ycc_longji").length > 0);
-                    for (const target of targets) {
-                        const cards = target.getExpansions("ycc_longji");
-                        if (cards.length > 0 && target.isIn() && !target.isDead()) {
-                            await target.gain(cards, "gain2");
-                            game.log(target, "收回了被【龙殛】扣置的牌");
-                        } else if (cards.length > 0) {
-                            game.cardsDiscard(cards);
-                        }
-                    }
-                },
-            },
-        },
-    },
-
-    
-};
-
-export const title = {
-    ycc_yuchengchen: "#g瑞武帝",
-};
-
-export const translates = {
-ycc_yuchengchen: "御承宸",
-    ycc_yuchengchen_prefix: "ycc",
-    ycc_huangming: "皇命",
-    ycc_huangming_info: "当你使用【杀】结算完成后，你可以令一名其他角色选择一项：1.对该目标使用一张【杀】（无视距离限制），然后你交给其一张手牌（没有则不交）；2.你弃置其一张手牌。",
-    ycc_yuce: "御策",
-    ycc_yuce_info: "出牌阶段结束时，若你手牌数为全场最高，你可以视为使用一张【杀】；若你手牌数为全场最低，你可以摸两张牌。",
-    ycc_qinzheng: "亲征",
-    ycc_qinzheng_info: "限定技，出牌阶段，你可以失去一点体力上限和【皇命】，手牌上限+1，获得【龙殛】。",
-    ycc_longji: "龙殛",
-    ycc_longji_info: "当一名角色成为你【杀】的目标时，其必须展示所有手牌，然后你扣置其一张手牌直到本回合结束。",
-    ycc_handlimit: "亲征",
-    ycc_handlimit_info: "你的手牌上限+1。",
-
-    
-};
-
-export const sort = ["ycc_yuchengchen"];
