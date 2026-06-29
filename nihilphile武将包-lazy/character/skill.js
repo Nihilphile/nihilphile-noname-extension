@@ -55,13 +55,41 @@ function isEntityShaOrJiu(card) {
     return get.itemtype(card) === "card" && get.position(card) === "h" && (card.name === "sha" || card.name === "jiu");
 }
 
+function isDamageCard(card) {
+    if (get.is && get.is.damageCard) return get.is.damageCard(card);
+    if (get.tag && get.tag(card, "damage")) return true;
+    return card.name === "sha";
+}
+
 function getDaowuContext(event, player) {
+    // Primary: check respondTo on current event
     const respondTo = event.respondTo;
-    if (!respondTo || !respondTo[0] || !respondTo[1]) return null;
-    const source = respondTo[0], card = respondTo[1];
-    if (!source.isIn || !source.isIn()) return null;
-    if (!get.is.damageCard(card)) return null;
-    return { source, card };
+    if (respondTo && respondTo[0] && respondTo[1]) {
+        const source0 = respondTo[0], card0 = respondTo[1];
+        if (source0.isIn && source0.isIn() && isDamageCard(card0)) {
+            return { source: source0, card: card0 };
+        }
+    }
+    // Fallback 1: traverse parent chain for respondTo
+    let evt = event.parent;
+    while (evt) {
+        if (evt.respondTo && evt.respondTo[0] && evt.respondTo[1]) {
+            const source1 = evt.respondTo[0], card1 = evt.respondTo[1];
+            if (source1.isIn && source1.isIn() && isDamageCard(card1)) {
+                return { source: source1, card: card1 };
+            }
+        }
+        evt = evt.parent;
+    }
+    // Fallback 2: use getParent("useCard") to find the damage source
+    const useCard = event.getParent("useCard");
+    if (useCard && useCard.card && useCard.player && isDamageCard(useCard.card)) {
+        const src = useCard.player;
+        if (src && src.isIn && src.isIn()) {
+            return { source: src, card: useCard.card };
+        }
+    }
+    return null;
 }
 
 function refreshRongguangQinggang(player, target, card) {
@@ -100,95 +128,12 @@ function yccYuceShaValue(player) {
     return player.getUseValue(YCC_SHA_CARD);
 }
 
-function yccYucePlanActive(player) {
+function yccYuceShouldPreserveHand(player) {
     if (_status.currentPhase !== player) return false;
     if (!player.hasSkill("ycc_yuce", null, null, false)) return false;
     if (!yccYuceMaxReachable(player)) return false;
     if (yccYuceShaValue(player) <= 0) return false;
-    return true;
-}
-
-function yccYuceShouldPreserveHand(player) {
-    if (!yccYucePlanActive(player)) return false;
     return player.countCards("h") - 1 < yccMaxOtherHand(player);
-}
-
-function yccYuceHasPositiveShaTarget(player) {
-    return game.hasPlayer(target => {
-        return target !== player && player.canUse(YCC_SHA_CARD, target) && get.effect(target, YCC_SHA_CARD, player, player) > 0;
-    });
-}
-
-function yccYuceEquipSubtypes(card) {
-    const list = get.subtypes(card, false);
-    if (Array.isArray(list) && list.length) return list;
-    const subtype = get.subtype(card, false);
-    return subtype ? [subtype] : [];
-}
-
-function yccYuceEquipAddsShaTarget(player, card, subtypes) {
-    const info = get.info(card);
-    if (!info || !info.distance) return false;
-    let range = player.getAttackRange();
-    if (subtypes.includes("equip1") && typeof info.distance.attackFrom == "number") {
-        range = Math.max(range, -info.distance.attackFrom + 1);
-    }
-    if ((subtypes.includes("equip4") || subtypes.includes("equip6")) && typeof info.distance.globalFrom == "number" && info.distance.globalFrom < 0) {
-        range += -info.distance.globalFrom;
-    }
-    if (range <= player.getAttackRange()) return false;
-    return game.hasPlayer(target => {
-        if (target === player || get.attitude(player, target) >= 0) return false;
-        if (player.canUse(YCC_SHA_CARD, target)) return false;
-        if (lib.filter.targetEnabled(YCC_SHA_CARD, player, target) === false) return false;
-        if (get.distance(player, target) > range) return false;
-        return get.effect(target, YCC_SHA_CARD, player, player) > 0;
-    });
-}
-
-function yccYuceDefensiveMountBlocksSha(player, card) {
-    const info = get.info(card);
-    const globalTo = info && info.distance && typeof info.distance.globalTo == "number" ? info.distance.globalTo : 0;
-    if (globalTo <= 0) return false;
-    return game.hasPlayer(source => {
-        if (source === player || get.attitude(player, source) >= 0) return false;
-        if (!source.canUse(YCC_SHA_CARD, player)) return false;
-        if (get.effect(player, YCC_SHA_CARD, source, player) >= 0) return false;
-        return get.distance(source, player) + globalTo > source.getAttackRange();
-    });
-}
-
-function yccYuceEquipImprovesShaOutput(player, card) {
-    if (get.name(card, player) !== "zhuge") return false;
-    if (player.getEquip && player.getEquip("zhuge")) return false;
-    if (player.countCards("h", current => current !== card && get.name(current, player) === "sha") < 2) return false;
-    return yccYuceHasPositiveShaTarget(player);
-}
-
-function yccYuceEquipOrder(player, card, num) {
-    const subtypes = yccYuceEquipSubtypes(card);
-    const noDiscardPressure = !player.needsToDiscard();
-    const wouldLoseYuceMax = yccYuceShouldPreserveHand(player);
-    if (!noDiscardPressure && !wouldLoseYuceMax) return num;
-
-    if (subtypes.includes("equip4") || subtypes.includes("equip1") || subtypes.includes("equip6")) {
-        if (subtypes.includes("equip1") && yccYuceEquipImprovesShaOutput(player, card)) return num;
-        if (yccYuceEquipAddsShaTarget(player, card, subtypes)) return num;
-        if ((subtypes.includes("equip4") || subtypes.includes("equip6")) && yccYuceHasPositiveShaTarget(player)) return 0;
-        return 0;
-    }
-
-    if (subtypes.includes("equip3")) {
-        if (yccYuceDefensiveMountBlocksSha(player, card)) return num;
-        return 0;
-    }
-
-    if (subtypes.includes("equip2") || subtypes.includes("equip5")) {
-        if (player.hp <= 2 || get.equipValue(card, player) >= 7.5) return num;
-        return 0;
-    }
-
-    return 0;
 }
 
 function yccHuangmingTargetScore(player, originalTarget, target, canUseShaOn) {
@@ -221,60 +166,6 @@ function yccHuangmingControlChoice(chosen, owner, originalTarget) {
     const optionSha = shaEffect + giftValue - shaCost;
     const optionDiscard = chosen.countCards("h") > 0 ? -3 - Math.min(2, chosen.countCards("h") / 2) : 0;
     return optionSha >= optionDiscard ? 0 : 1;
-}
-
-function yccQinzhengEnemies(player) {
-    return game.filterPlayer(current => current !== player && get.attitude(player, current) < 0);
-}
-
-function yccQinzhengIsDuel(player) {
-    const enemies = yccQinzhengEnemies(player);
-    return enemies.length === 1 && game.countPlayer(current => current !== player) === 1;
-}
-
-function yccQinzhengHasAllyHuangmingSupport(player, enemy) {
-    return game.hasPlayer(current => {
-        if (current === player || current === enemy) return false;
-        if (get.attitude(player, current) <= 0) return false;
-        if (current.countCards("h") <= 4) return false;
-        if (!current.hasSha()) return false;
-        if (lib.filter.cardEnabled(YCC_SHA_CARD, current) === false) return false;
-        if (lib.filter.targetEnabled(YCC_SHA_CARD, current, enemy) === false) return false;
-        return get.effect(enemy, YCC_SHA_CARD, current, player) > 0;
-    });
-}
-
-function yccQinzhengResetWatch(player) {
-    player.storage.ycc_qinzheng_no_support = 0;
-    player.storage.ycc_qinzheng_watch_round = game.roundNumber;
-}
-
-function yccQinzhengUpdateWatch(player) {
-    if (player.storage.ycc_qinzheng_watch_round === game.roundNumber) return;
-    player.storage.ycc_qinzheng_watch_round = game.roundNumber;
-    const enemies = yccQinzhengEnemies(player);
-    if (enemies.length !== 1) {
-        player.storage.ycc_qinzheng_no_support = 0;
-        return;
-    }
-    if (yccQinzhengIsDuel(player)) {
-        player.storage.ycc_qinzheng_no_support = 3;
-        return;
-    }
-    if (yccQinzhengHasAllyHuangmingSupport(player, enemies[0])) {
-        player.storage.ycc_qinzheng_no_support = 0;
-        return;
-    }
-    player.storage.ycc_qinzheng_no_support = (player.storage.ycc_qinzheng_no_support || 0) + 1;
-}
-
-function yccQinzhengShouldUse(player) {
-    if (!player.hasSkill("ycc_huangming", null, null, false)) return false;
-    const enemies = yccQinzhengEnemies(player);
-    if (enemies.length !== 1) return false;
-    if (yccQinzhengIsDuel(player)) return true;
-    if (yccQinzhengHasAllyHuangmingSupport(player, enemies[0])) return false;
-    return (player.storage.ycc_qinzheng_no_support || 0) >= 3;
 }
 
 /** @type { importCharacterConfig['skill'] } */
@@ -408,12 +299,10 @@ const skills = {
         direct: true,
         mod: {
             aiOrder(player, card, num) {
-                if (!yccYucePlanActive(player)) return;
+                if (!yccYuceShouldPreserveHand(player)) return;
                 if (get.itemtype(card) !== "card" || get.position(card) !== "h") return;
                 const name = get.name(card, player);
                 if (name === "wuzhong") return num + 0.5;
-                if (get.type(card, null, player) === "equip") return yccYuceEquipOrder(player, card, num);
-                if (!yccYuceShouldPreserveHand(player)) return;
                 const useValue = player.getUseValue(card);
                 if (name === "sha" && useValue > 0) return num;
                 if (useValue >= Math.max(2, yccYuceShaValue(player))) return num;
@@ -481,7 +370,6 @@ const skills = {
         audio: 2,
         enable: "phaseUse",
         limited: true,
-        group: "ycc_qinzheng_watch",
         filter(event, player) {
             return player.hasSkill("ycc_huangming", null, null, false);
         },
@@ -491,34 +379,12 @@ const skills = {
             player.removeSkill("ycc_huangming");
             player.addSkill("ycc_handlimit");
             player.addSkill("ycc_longji");
-            delete player.storage.ycc_qinzheng_no_support;
-            delete player.storage.ycc_qinzheng_watch_round;
         },
         ai: {
-            order(item, player) {
-                return yccQinzhengShouldUse(player) ? 10 : -1;
-            },
+            order: -1,
             result: {
-                player(player) {
-                    return yccQinzhengShouldUse(player) ? 3 : -1;
-                },
+                player: -1,
             },
-        },
-    },
-
-    ycc_qinzheng_watch: {
-        charlotte: true,
-        trigger: { global: "roundStart" },
-        forced: true,
-        popup: false,
-        filter(event, player) {
-            return player.hasSkill("ycc_qinzheng", null, null, false) && player.hasSkill("ycc_huangming", null, null, false);
-        },
-        async content(event, trigger, player) {
-            yccQinzhengUpdateWatch(player);
-        },
-        onremove(player) {
-            yccQinzhengResetWatch(player);
         },
     },
 

@@ -44,14 +44,11 @@ function takeAmmo(player) {
 }
 
 function makeRongguangSha(player) {
-    const first = getAmmo(player)[0];
-    const card = {
+    return {
         name: "sha",
         isCard: true,
         storage: { tia6_rongguang: true },
     };
-    if (first && first.source === "daowu") card.nature = "fire";
-    return card;
 }
 
 function isEntityShaOrJiu(card) {
