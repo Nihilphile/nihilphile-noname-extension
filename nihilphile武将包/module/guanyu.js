@@ -6,6 +6,168 @@
         return "extension/" + EXT_NAME + "/image/character/" + id + "." + (ext || "png");
     }
 
+    function guanyuClamp(num, min, max) {
+        return Math.max(min, Math.min(max, num));
+    }
+
+    function guanyuSourceCard(card) {
+        if (card && Array.isArray(card.cards) && card.cards.length) return card.cards[0];
+        return card;
+    }
+
+    function guanyuMakeSha(card) {
+        if (get.autoViewAs) return get.autoViewAs({ name: "sha" }, card ? [card] : []);
+        return {
+            name: "sha",
+            cards: card ? [card] : [],
+            suit: card ? get.suit(card) : undefined,
+            number: card ? get.number(card) : undefined,
+            color: card ? get.color(card) : undefined,
+        };
+    }
+
+    function guanyuCardNumber(card, player) {
+        const source = guanyuSourceCard(card);
+        return get.number(source || card, player) || (source && source.number) || (card && card.number) || 0;
+    }
+
+    function guanyuIsRedSha(card, player) {
+        if (!card || get.name(card, player) !== "sha") return false;
+        if (get.color(card, player) === "red") return true;
+        const source = guanyuSourceCard(card);
+        return !!source && get.color(source, player) === "red";
+    }
+
+    function guanyuCanBonus(card, target, player) {
+        const num = guanyuCardNumber(card, player);
+        if (!num || !target) return false;
+        return target.hp > Math.ceil(num / 3);
+    }
+
+    function guanyuEnemyThreat(player, target) {
+        if (!target || get.attitude(player, target) >= 0) return 1;
+        let threat = 1;
+        if (get.threaten) threat = get.threaten(target, player, true) || 1;
+        if (target.hp <= 1) threat += 0.7;
+        else if (target.hp <= 2) threat += 0.35;
+        return threat;
+    }
+
+    function guanyuOffenseTendency(player) {
+        let tendency = player.hp >= 3 ? 0.95 : 0.75;
+        if (player.needsToDiscard && player.needsToDiscard()) tendency += 0.25;
+        game.filterPlayer(current => {
+            if (current === player || get.attitude(player, current) >= 0) return;
+            const threat = guanyuEnemyThreat(player, current);
+            tendency = Math.max(tendency, 0.85 + Math.min(0.7, (threat - 1) * 0.28));
+            if (current.hp <= 1) tendency = Math.max(tendency, 1.65);
+            else if (current.hp <= 2) tendency = Math.max(tendency, 1.35);
+        });
+        return guanyuClamp(tendency, 0.65, 1.85);
+    }
+
+    function guanyuDefenseTendency(player) {
+        let tendency = 0.75;
+        if (player.hp <= 1) tendency = 2.1;
+        else if (player.hp === 2) tendency = 1.55;
+        else if (player.hp === 3) tendency = 1.05;
+        if (player.countCards("h") <= Math.max(1, player.hp)) tendency += 0.25;
+        const pressure = game.countPlayer(current => {
+            if (current === player || get.attitude(player, current) >= 0) return false;
+            return current.canUse && current.canUse({ name: "sha", isCard: true }, player);
+        });
+        tendency += Math.min(0.45, pressure * 0.15);
+        return guanyuClamp(tendency, 0.7, 2.6);
+    }
+
+    function guanyuFutureAttackValue(card, player) {
+        const num = guanyuCardNumber(card, player) || 13;
+        let value = Math.max(0.4, (14 - num) / 3);
+        if (num <= 3) value += 0.8;
+        else if (num <= 6) value += 0.35;
+        if (get.name(card, player) === "sha") value += 0.4;
+        return value;
+    }
+
+    function guanyuDefenseValue(card, player) {
+        let value = get.useful(card, player) + get.value(card, player) / 3;
+        const name = get.name(card, player);
+        if (name === "tao") value += player.hp <= 2 ? 6 : 3;
+        else if (name === "shan") value += player.hp <= 2 ? 3.5 : 1.5;
+        else if (name === "wuxie") value += 2;
+        const subtype = get.subtype(card, false);
+        if (get.position(card) === "e") value += 1;
+        if ((subtype === "equip2" || subtype === "equip3") && player.hp <= 2) value += 2;
+        return value;
+    }
+
+    function guanyuKeepValue(card, player) {
+        return guanyuFutureAttackValue(card, player) * guanyuOffenseTendency(player) + guanyuDefenseValue(card, player) * guanyuDefenseTendency(player);
+    }
+
+    function guanyuWushengTargetScore(player, target, sourceCard) {
+        if (!target || target === player || !target.isIn || !target.isIn()) return -Infinity;
+        if (get.attitude(player, target) >= 0) return -Infinity;
+        const sha = guanyuMakeSha(sourceCard);
+        if (player.canUse && !player.canUse(sha, target)) return -Infinity;
+
+        let score = get.effect(target, sha, player, player);
+        const bonus = guanyuCanBonus(sourceCard, target, player);
+        const damage = bonus ? 2 : 1;
+        const threat = guanyuEnemyThreat(player, target);
+        if (bonus) score += 1.6 + Math.min(1.2, target.hp * 0.25);
+        if (target.hp <= damage) score += 4.2;
+        else if (target.hp <= damage + 1) score += 1.5;
+        score += Math.min(1.5, (threat - 1) * 0.45);
+        if (target.countCards("h") > 0) score += 0.35;
+        score -= Math.max(0, target.countCards("h") - 2) * 0.18;
+        return score;
+    }
+
+    function guanyuBestWushengScore(player, sourceCard) {
+        let best = -Infinity;
+        game.filterPlayer(current => {
+            best = Math.max(best, guanyuWushengTargetScore(player, current, sourceCard));
+        });
+        return best;
+    }
+
+    function guanyuWushengUseScore(player, card) {
+        const best = guanyuBestWushengScore(player, card);
+        if (best <= 0) return -guanyuKeepValue(card, player);
+        return best * 2.2 - guanyuKeepValue(card, player);
+    }
+
+    function guanyuWushengCheck(card) {
+        const player = _status.event && _status.event.player;
+        if (!player) return 5 - get.value(card);
+        if (_status.event.name === "chooseToRespond") {
+            return 10 / Math.max(1, guanyuKeepValue(card, player));
+        }
+        return guanyuWushengUseScore(player, card);
+    }
+
+    function guanyuWushengOrder(item, player) {
+        if (!player || !_status.event || _status.event.type !== "phase") return 4;
+        let best = 0;
+        player.getCards("hes").forEach(card => {
+            if (get.color(card, player) === "red") best = Math.max(best, guanyuWushengUseScore(player, card));
+        });
+        if (best <= 0) return 0;
+        return get.order({ name: "sha" }) + 0.25 + guanyuClamp(best / 5, 0, 1.6);
+    }
+
+    function guanyuWushengEffect(card, player, target) {
+        if (!guanyuIsRedSha(card, player) || !target || get.attitude(player, target) >= 0) return;
+        let mult = 1.08;
+        if (guanyuCanBonus(card, target, player)) mult += 0.32;
+        if (target.hp <= (guanyuCanBonus(card, target, player) ? 2 : 1)) mult += 0.22;
+        if (target.countCards("h") <= 2) mult += 0.12;
+        else if (target.countCards("h") >= 5) mult -= 0.08;
+        mult += Math.min(0.18, (guanyuEnemyThreat(player, target) - 1) * 0.06);
+        return [1, 0, guanyuClamp(mult, 0.95, 1.75), 0];
+    }
+
     // ============================================================
     //  关羽 — 仁锋断恶
     // ============================================================
@@ -35,8 +197,22 @@
             return player.countCards("hes", card => get.color(card, player) === "red") > 0;
         },
         prompt: "将一张红色牌当【杀】使用或打出",
+        check: guanyuWushengCheck,
         ai: {
+            order: guanyuWushengOrder,
             respondSha: true,
+            skillTagFilter(player) {
+                return player.countCards("hes", card => get.color(card, player) === "red") > 0;
+            },
+            effect: {
+                player_use: guanyuWushengEffect,
+                player: guanyuWushengEffect,
+            },
+            result: {
+                player(player, target) {
+                    return target && get.attitude(player, target) < 0 ? 1 : 0;
+                },
+            },
         },
         group: "nihil_wusheng_damage",
     },
@@ -67,7 +243,7 @@
         trigger: { player: "useCardToPlayered" },
         direct: true,
         filter(event, player) {
-            return event.card && event.card.name === "sha" && event.player.countCards("h") > 0;
+            return event.card && event.card.name === "sha" && event.target && event.target.countCards("h") > 0;
         },
         async content(event, trigger, player) {
             const target = trigger.target;
