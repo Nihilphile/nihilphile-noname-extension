@@ -1,4 +1,4 @@
-import { lib, game, ui, get, ai, _status } from "../../../noname.js";
+import { lib, game, ui, get, ai, _status } from "noname";
 
 const AMMO = "tia_ammo";
 const MAX_AMMO = 6;
