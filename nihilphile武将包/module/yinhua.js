@@ -113,19 +113,15 @@
                 var N = targets ? targets.length : 0;
                 if (N <= 0) return;
                 player.logSkill("nihil_canyan");
-                game.log(player, "受到了残言的反噬");
-                for (var i = 0; i < N; i++) {
-                    if (!player.isAlive()) break;
-                    // 自指杀无视防具（藤甲/仁王盾），但可正常出闪
-                    player.addTempSkill("qinggang2");
-                    player.storage.qinggang2 = player.storage.qinggang2 || [];
-                    player.storage.qinggang2.push({ name: "sha" });
-                    await player.useCard(
-                        { name: "sha", isCard: true },
-                        player,
-                        false
-                    );
-                }
+                game.log(player, "受到了残言的反噬（伤害" + N + "）");
+                // 自指杀无视防具（藤甲/仁王盾），但可正常出闪
+                var card = { name: "sha", isCard: true };
+                player.addTempSkill("qinggang2");
+                player.storage.qinggang2 = player.storage.qinggang2 || [];
+                player.storage.qinggang2.push(card);
+                var evt = player.useCard(card, player, false);
+                evt.baseDamage = N;
+                await evt;
             },
         },
 
@@ -205,13 +201,13 @@
 
     var translates = {
         nihil_yinhua: "殷华",
-        nihil_yinhua_prefix: "决意之殇",
+        nihil_yinhua_prefix: "赤色残花",
 
         nihil_canyan: "残言",
         nihil_canyan_info:
             "出牌阶段，你可以将一张【杀】当作本回合未使用过的非延时锦囊牌使用。" +
             "此牌仅可指定与你距离不大于X的角色，" +
-            "且此牌结算后，每指定一名角色，视为你对自己使用一张杀。（X为你已损失体力值）",
+            "且此牌结算后，视为你对自己使用一张伤害等同于其指定目标数的杀。（X为你已损失体力值）",
 
         nihil_canyuan: "残恨",
         nihil_canyuan_info:
