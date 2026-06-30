@@ -39,6 +39,17 @@
                     return num + player.hujia;
                 },
             },
+            ai: {
+                effect: {
+                    // 桃转盾仍有价值——满血也吃桃
+                    player_use(card, player, target) {
+                        if (player === target && card.name === "tao"
+                            && player.hasSkill("nihil_kaiwu") && player.hujia < 5) {
+                            return [1, 1];
+                        }
+                    },
+                },
+            },
             group: [
                 "nihil_kaiwu_shield",
                 "nihil_kaiwu_draw",
@@ -108,7 +119,15 @@
                     && event.num > 0;
             },
             check(event, player) {
-                return get.attitude(player, event.player) > 0;
+                if (get.attitude(player, event.player) <= 0) return false;
+                // 不会濒死 → 发动
+                if (player.hp > event.num) return true;
+                // 会濒死，但有桃/酒自救 → 发动
+                if (player.hasCard(function(card) {
+                    return card.name === "tao" || card.name === "jiu";
+                }, "h")) return true;
+                // 会死且无自救 → 不发动
+                return false;
             },
             async content(event, trigger, player) {
                 trigger.cancel();
@@ -148,14 +167,10 @@
                 await evt;
             },
             ai: {
-                order: 8,
+                order: 9,
                 result: {
                     player(player) {
-                        if (player.hujia < 2 || player.hp >= player.maxHp)
-                            return 0;
-                        if (player.hp <= 1) return 3;
-                        if (player.hp <= 2 && player.hujia >= 4) return 2;
-                        if (player.hujia >= 4) return 1;
+                        if (player.hujia >= 4 && player.hp < player.maxHp) return 2;
                         return 0;
                     },
                 },

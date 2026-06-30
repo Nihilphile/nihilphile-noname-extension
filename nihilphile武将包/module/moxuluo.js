@@ -371,11 +371,7 @@
                 return event._pomo_targets && event._pomo_targets.length > 0;
             },
             check: function (event, player) {
-                var targets = event._pomo_targets;
-                if (!targets) return false;
-                return targets.some(function (t) {
-                    return t && t.isIn() && get.attitude(player, t) < 0;
-                });
+                return true;
             },
             async content(event, trigger, player) {
                 var card = trigger._pomo_card;
@@ -412,6 +408,10 @@
                     .chooseToDiscard(1, "he")
                     .set("prompt", "弃置一张牌，视为对" + targetNames + "打出同名牌（不可响应）")
                     .set("ai", function (card2) {
+                        // 全队友 → 不弃牌（返回负分使 AI 取消选择）
+                        if (targets.every(function(t) {
+                            return get.attitude(player, t) >= 0;
+                        })) return -1;
                         return 6 - get.value(card2);
                     })
                     .forResult();

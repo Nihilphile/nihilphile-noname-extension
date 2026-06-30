@@ -192,11 +192,28 @@
             return get.color(card, player) === "red";
         },
         position: "hes",
-        viewAs: { name: "sha" },
+        viewAs(cards, player) {
+            if (cards.length !== 1) return null;
+            var num = get.number(cards[0], player);
+            var X = Math.ceil(num / 3);
+            return {
+                name: "sha",
+                cards: cards,
+                _rangeX: X,
+            };
+        },
         viewAsFilter(player) {
             return player.countCards("hes", card => get.color(card, player) === "red") > 0;
         },
         prompt: "将一张红色牌当【杀】使用或打出",
+        mod: {
+            targetInRange(card, player, target) {
+                if (get.name(card, player) === "sha" && typeof card._rangeX === "number") {
+                    var dist = get.distance(player, target);
+                    return dist <= card._rangeX;
+                }
+            },
+        },
         check: guanyuWushengCheck,
         ai: {
             order: guanyuWushengOrder,
