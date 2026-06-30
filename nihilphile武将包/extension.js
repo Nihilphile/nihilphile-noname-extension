@@ -14,6 +14,12 @@ game.import("extension", function (lib, game, ui, get, ai, _status) {
             window.NIHIL_EXTENSION_NAME = EXT_NAME;
             window.nihilModules = {};
 
+            // 殷华 AI 逻辑太复杂，排除 AI 选将
+            if (!lib.config.forbidai) lib.config.forbidai = [];
+            if (!lib.config.forbidai.includes("nihil_yinhua")) {
+                lib.config.forbidai.push("nihil_yinhua");
+            }
+
             if (lib.init.jsSync) {
                 // Load character helper files (pinyin, intro)
                 lib.init.jsSync(base + "character", "pinyin");
