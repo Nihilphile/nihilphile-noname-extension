@@ -95,6 +95,16 @@ function getDaowuContext(event, player) {
     return null;
 }
 
+function isDaowuResponseWindow(event, player) {
+    if (!event) return false;
+    if (getDaowuContext(event, player)) return true;
+    if (event.type === "respondSha" || event.type === "respondShan") return true;
+    if (event.name === "chooseToRespond" || event.name === "chooseToUse") {
+        if (event.respondTo && event.respondTo[1] && isDamageCard(event.respondTo[1])) return true;
+    }
+    return false;
+}
+
 function refreshRongguangQinggang(player, target, card) {
     if (!card || card.name !== "sha" || !target || !target.isIn || !target.isIn()) return;
     if (!player.getEquip || !player.getEquip("qinggang")) return;
@@ -188,11 +198,31 @@ function tiaCanThird(ammo, next) {
     return !next || !tiaCanSecond(next);
 }
 
+function tiaHiddenRunLength(ammoList, index) {
+    let length = 0;
+    while (index + length < ammoList.length && ammoList[index + length] && !ammoList[index + length].visible) length++;
+    return length;
+}
+
 function tiaMakeAmmoGroups(ammoList) {
     const groups = [];
     let index = 0;
     while (index < ammoList.length) {
         const first = ammoList[index];
+        const hiddenRun = tiaHiddenRunLength(ammoList, index);
+        if (hiddenRun >= 2) {
+            const previousIsHidden = index > 0 && ammoList[index - 1] && !ammoList[index - 1].visible;
+            const length = hiddenRun >= 5 || (hiddenRun === 3 && previousIsHidden) ? 3 : 2;
+            groups.push({
+                start: index,
+                list: ammoList.slice(index, index + length),
+                type: "dark",
+                complete: true,
+                enhanced: length >= 3,
+            });
+            index += length;
+            continue;
+        }
         const group = { start: index, list: [first], type: "normal", complete: false };
         if (tiaAmmoIsVisibleKing(first)) {
             group.type = "clean";
@@ -225,6 +255,38 @@ function tiaMakeAmmoGroups(ammoList) {
         index += group.list.length;
     }
     return groups;
+}
+
+function tiaCompleteAmmoGroups(ammoList) {
+    return tiaMakeAmmoGroups(ammoList).filter(group => group.complete);
+}
+
+function tiaCompleteAmmoGroupCount(player, extraAmmo) {
+    const list = getAmmo(player).slice();
+    if (extraAmmo) list.push(extraAmmo);
+    return tiaCompleteAmmoGroups(list).length;
+}
+
+function tiaAmmoPlanScore(ammoList) {
+    const groups = tiaMakeAmmoGroups(ammoList);
+    let score = 0;
+    groups.forEach((group, index) => {
+        if (group.complete) {
+            score += 8 + group.list.length;
+            if (index === 0) score += 2;
+            if (group.enhanced) score += 1.2;
+        } else {
+            score -= 2.5;
+        }
+        if (group.type === "clean") score -= 1;
+    });
+    return score;
+}
+
+function tiaDanyiOverflowImprovement(player) {
+    const ammo = getAmmo(player);
+    if (ammo.length < MAX_AMMO) return 0;
+    return tiaAmmoPlanScore(ammo.slice(1).concat([tiaDarkAmmoCandidate()])) - tiaAmmoPlanScore(ammo);
 }
 
 function tiaLastAmmoGroup(player, extraCard) {
@@ -276,8 +338,8 @@ function tiaNextLoadSlot(player) {
 function tiaPointFitValue(num, slot) {
     num = num || 13;
     if (tiaIsKingPoint(num)) return -4;
-    if (slot <= 1) return num <= 12 ? (num <= 4 ? 3.2 : num <= 8 ? 2.2 : 1.2) : -3;
-    if (slot === 2) return num <= 8 ? (num <= 4 ? 3.8 : 2.5) : -1.6;
+    if (slot <= 1) return num <= 12 ? (num <= 4 ? 2.2 : num <= 8 ? 2.8 : 3.4) : -3;
+    if (slot === 2) return num <= 8 ? (num <= 4 ? 1.8 : 3.2) : -1.6;
     if (slot === 3) return num <= 4 ? 4.2 : -1.3;
     return num <= 4 ? 0.6 : -1.2;
 }
@@ -287,20 +349,31 @@ function tiaBlackFutureAttackValue(card, player) {
     const num = tiaPoint(card);
     let value = tiaPointFitValue(num, tiaNextLoadSlot(player));
     if (tiaCanExtendLastGroup(player, card)) value += 2.2;
-    if (num <= 4) value += 1.2;
-    else if (num <= 8) value += 0.5;
+    if (num <= 4) value += 3.2;
+    else if (num <= 8) value += 1.3;
+    else if (num <= 12) value += 0.4;
     if (tiaCardName(card, player) === "shan" && num <= 4) value += 0.8;
     if (tiaCardName(card, player) === "wuxie") value += 0.4;
     return value;
 }
 
+function tiaIsDefenseCard(card, player) {
+    if (!card) return false;
+    const name = tiaCardName(card, player);
+    if (get.color(card, player) === "black") return true;
+    if (["tao", "shan", "wuxie"].includes(name)) return true;
+    return name === "jiu" && player.hp <= 2;
+}
+
 function tiaDefensiveResourceCount(player, except) {
     return player.countCards("h", card => {
         if (card === except) return false;
-        const name = tiaCardName(card, player);
-        if (["tao", "jiu", "shan", "wuxie"].includes(name)) return true;
-        return get.color(card, player) === "black";
+        return tiaIsDefenseCard(card, player);
     });
+}
+
+function tiaDefenseFloor(player) {
+    return player.hp <= 1 ? 1 : 2;
 }
 
 function tiaDefenseTendency(player) {
@@ -333,11 +406,17 @@ function tiaOffenseTendency(player) {
 
 function tiaDefenseValue(card, player, base) {
     const name = tiaCardName(card, player);
+    const num = tiaPoint(card);
     let value = typeof base == "number" ? base : 0;
-    if (get.color(card, player) === "black") value += 2.3;
-    if (get.color(card, player) === "black" && tiaIsKingPoint(tiaPoint(card))) value -= 1.4;
+    if (get.color(card, player) === "black") {
+        value += 4.4;
+        if (num <= 4) value += 2.5;
+        else if (num <= 8) value += 1.1;
+        else if (num <= 12) value += 0.3;
+    }
+    if (get.color(card, player) === "black" && tiaIsKingPoint(num)) value -= 1.4;
     if (name === "tao") value += player.hp <= 1 ? 7 : player.hp === 2 ? 4.5 : 2.4;
-    else if (name === "jiu") value += player.hp <= 1 ? 5.8 : player.hp === 2 ? 2.2 : 0.7;
+    else if (name === "jiu") value += player.hp <= 1 ? 5.8 : player.hp === 2 ? 2.2 : 0;
     else if (name === "shan") value += 1.6;
     else if (name === "wuxie") {
         value += 2.8;
@@ -359,25 +438,104 @@ function tiaDanyiCostScore(card, player) {
     const name = tiaCardName(card, player);
     const color = get.color(card, player);
     const num = tiaPoint(card);
-    let score = 7.5;
+    const completeGroups = tiaCompleteAmmoGroupCount(player);
+    const completeGroupsAfter = tiaCompleteAmmoGroupCount(player, tiaDarkAmmoCandidate());
+    const defenseAfter = tiaDefensiveResourceCount(player, card);
+    const defenseShortage = Math.max(0, tiaDefenseFloor(player) - defenseAfter);
+    let score = 5.8;
+
+    if (completeGroups <= 0) score += player.hp >= 3 ? 5.4 : 2.6;
+    else if (completeGroups < 2) score += player.hp >= 3 ? 3.2 : 1.2;
+    else score -= 18;
+    if (completeGroupsAfter > completeGroups) score += 3.2;
+
     if (ammo.length >= MAX_AMMO) {
-        if (tiaAmmoIsVisibleKing(ammo[0])) score += 2.5;
-        else score -= 3.5;
+        const improvement = tiaDanyiOverflowImprovement(player);
+        if (improvement > 1.2) score += tiaClamp(improvement, 1.2, 5.5);
+        else score -= 9;
     } else if (ammo.length <= 2) {
-        score += 2.4;
+        score += 1.8;
     }
+
     if (tiaDanyiExtendsGroup(player)) score += 2.8;
-    if (color === "red") score += 2.1;
-    else if (num >= 9) score += 1.4;
-    else if (num >= 5) score += 0.2;
-    else score -= 1.6;
-    if (name === "jiu" && player.hp <= 1) score -= 4.5;
-    if (player.hp <= 1 && color === "black") score -= 2.2;
-    if (tiaDefensiveResourceCount(player, card) <= 1 && color === "black") score -= 1.6;
-    return score - tiaKeepValue(card, player, 0) * 0.35;
+    if (color === "red") score += 4.4;
+    else if (num >= 9) score += 0.8;
+    else if (num >= 5) score -= 1.5;
+    else score -= 4.8;
+
+    if (defenseShortage) {
+        score -= defenseShortage * (player.hp <= 2 ? 8.5 : completeGroups <= 0 ? 3.2 : 5.2);
+    }
+    if (name === "jiu" && player.hp <= 2) score -= player.hp <= 1 ? 5.5 : 2.8;
+    if (color === "black") score -= 2.2;
+
+    return score - tiaKeepValue(card, player, 0) * (player.hp <= 2 ? 0.55 : 0.38);
 }
 
-function tiaHasWorthwhileDanyi(player) {
+function tiaGetDamageResponseGroupState(player) {
+	    const groups = tiaMakeAmmoGroups(getAmmo(player));
+	    if (!groups.length) return "empty";
+	    const last = groups[groups.length - 1];
+	    if (last.complete) return "empty";
+	    if (last.list.length === 1) return "one";
+	    return "empty";
+	}
+
+	function tiaDamageResponsePointBase(pt, groupState) {
+	    if (tiaIsKingPoint(pt)) return 5;
+	    if (groupState === "empty") {
+	        if (pt >= 9 && pt <= 12) return 100;
+	        if (pt >= 5 && pt <= 8)  return 70;
+	        if (pt >= 1 && pt <= 4)  return 50;
+	    } else {
+	        if (pt >= 5 && pt <= 8)  return 100;
+	        if (pt >= 1 && pt <= 4)  return 70;
+	        if (pt >= 9 && pt <= 12) return 35;
+	    }
+	    return 0;
+	}
+
+	function tiaDamageResponseCardScore(card, player, asName) {
+	    const pt = tiaPoint(card);
+	    const groupState = tiaGetDamageResponseGroupState(player);
+	    let score = tiaDamageResponsePointBase(pt, groupState);
+	    const isBlack = get.color(card, player) === "black";
+	    if (!isBlack) score += 6;
+	    score -= tiaKeepValue(card, player, 0) * 0.08;
+	    const cardName = tiaCardName(card, player);
+	    if (cardName === asName) score += 0.5;
+	    return score;
+	}
+
+function tiaDamageResponseScoreToOrder(score, defaultOrder) {
+    if (score >= 105) return Math.max(defaultOrder + 2, 6);
+    if (score >= 100) return Math.max(defaultOrder + 1, 4.5);
+    if (score >= 75)  return Math.max(defaultOrder, 3.5);
+    if (score >= 50)  return Math.max(defaultOrder - 0.5, 2.5);
+    return Math.max(defaultOrder - 1, 1.5);
+}
+
+function tiaEntityDamageResponseScore(card, player) {
+    const event = _status.event;
+    if (!event || event.name !== "chooseToRespond" && event.name !== "chooseToUse") return null;
+    if (typeof event.filterCard !== "function") return null;
+    if (!card || get.itemtype(card) !== "card" || get.position(card) !== "h") return null;
+    const name = tiaCardName(card, player);
+    if (name === "shan") {
+        if (!isDaowuResponseWindow(event, player)) return null;
+        if (!event.filterCard(card, player, event)) return null;
+        return tiaDamageResponseCardScore(card, player, "shan");
+    }
+    if (name === "sha") {
+        const context = getDaowuContext(event, player);
+        if (!context || !context.card || !["nanman", "juedou"].includes(context.card.name)) return null;
+        if (!event.filterCard(card, player, event)) return null;
+        return tiaDamageResponseCardScore(card, player, "sha");
+    }
+    return null;
+}
+
+	function tiaHasWorthwhileDanyi(player) {
     return player.hasCard(card => isEntityShaOrJiu(card) && tiaDanyiCostScore(card, player) > 0, "h");
 }
 
@@ -413,20 +571,22 @@ function tiaBestRongguangTargetScore(player, round, ammo) {
 function tiaRongguangOrder(item, player) {
     const ammo = getAmmo(player);
     if (!ammo.length) return 0;
-    const first = ammo[0];
+    const firstGroup = tiaFirstAmmoGroup(player);
+    const completeGroups = tiaCompleteAmmoGroupCount(player);
+    if (!firstGroup || !firstGroup.complete) return 0;
+    if (completeGroups < 2 && tiaHasWorthwhileDanyi(player)) return 0;
+    const first = firstGroup.list[0];
     if (tiaAmmoWillFail(first, 1) && !tiaAmmoIsVisibleKing(first)) return 0;
     const best = tiaBestRongguangTargetScore(player, 1, first);
     if (best <= 0 && !tiaAmmoIsVisibleKing(first)) return 0;
-    const firstGroup = tiaFirstAmmoGroup(player);
-    if (!tiaAmmoIsVisibleKing(first) && tiaCanImproveCurrentGroupByDanyi(player)) {
-        if (!firstGroup || firstGroup.list.length < 3) return 0;
-    }
-    return 6.2 + tiaClamp(best / 3, 0, 2.3);
+    return (completeGroups >= 2 ? 8.7 : 5.6) + tiaClamp(best / 3, 0, 2.3);
 }
 
-function tiaShouldRongguangExtra(player, target, round) {
+function tiaShouldRongguangExtra(player, target, round, state) {
+    if (state && state.groupRemaining > 0) return true;
     const ammo = getAmmo(player);
     if (!ammo.length || !target || get.attitude(player, target) >= 0) return false;
+    if (state && state.groupRemaining <= 0) return false;
     const next = ammo[0];
     if (round >= 4) return false;
     if (tiaAmmoWillFail(next, round)) return tiaAmmoIsVisibleKing(next);
@@ -434,36 +594,6 @@ function tiaShouldRongguangExtra(player, target, round) {
     if (round === 2) return score > 0.6 && (ammo.length >= 2 || target.hp <= 2 || target.countCards("h") <= 1);
     if (round === 3) return score > 1.8 && (ammo.length >= 4 || target.hp <= 1 || target.countCards("h") === 0);
     return false;
-}
-
-function tiaDaowuResponseScore(card, player) {
-    const num = tiaPoint(card);
-    const before = tiaMakeAmmoGroups(getAmmo(player));
-    const after = tiaMakeAmmoGroups(getAmmo(player).concat([tiaCardToAmmo(card, player)]));
-    const lastBefore = before[before.length - 1];
-    const lastAfter = after[after.length - 1];
-    let score = tiaPointFitValue(num, tiaNextLoadSlot(player)) * 1.2;
-    if (lastBefore && lastAfter && lastAfter.start === lastBefore.start && lastAfter.list.length > lastBefore.list.length) {
-        score += 5;
-        if (lastBefore.list.length === 1 && lastAfter.list.length === 2) {
-            score += 1.2;
-            if (num >= 5 && num <= 8) score += 2.1;
-            else if (num <= 4) score -= 0.8;
-        }
-        if (lastBefore.list.length === 2 && lastAfter.list.length === 3) score += 1.6;
-    } else if (lastBefore && !lastBefore.complete && lastAfter && lastAfter.start !== lastBefore.start) {
-        score -= 3.2;
-    } else if (!lastBefore || (lastBefore.complete && (!lastAfter || lastAfter.start !== lastBefore.start))) {
-        if (num >= 9 && num <= 12) score += 1.6;
-        else if (num >= 5 && num <= 8) score += 0.8;
-        else if (num <= 4) score -= 0.6;
-    }
-    score -= tiaKeepValue(card, player, 0) * 0.45;
-    if (tiaIsKingPoint(num)) score -= 4;
-    if (tiaCardName(card, player) === "shan") score += 2.2;
-    if (tiaCardName(card, player) === "wuxie" && player.countCards("h", c => c !== card && get.color(c, player) === "black") > 0) score -= 2.5;
-    if (player.hp <= 1) score += 1.5;
-    return score;
 }
 
 var character = {
@@ -546,22 +676,40 @@ tia_ammo: {
                 if (_status.currentPhase === player && isEntityShaOrJiu(card)) return true;
             },
             aiOrder(player, card, num) {
+                if (isDaowuResponseWindow(_status.event, player)) {
+                    if (card.name === "shan") {
+                        const score = tiaDamageResponseCardScore(card, player, "shan");
+                        return tiaDamageResponseScoreToOrder(score, 3);
+                    }
+                    if (card.name === "sha") {
+                        const ctx = getDaowuContext(_status.event, player);
+                        if (ctx && ctx.card && ["nanman", "juedou"].includes(ctx.card.name)) {
+                            const score = tiaDamageResponseCardScore(card, player, "sha");
+                            return tiaDamageResponseScoreToOrder(score, 3.2);
+                        }
+                    }
+                }
                 if (_status.currentPhase === player && isEntityShaOrJiu(card)) {
                     const score = tiaDanyiCostScore(card, player);
                     if (score <= 0) return 0;
                     return Math.max(num || 0, 7.2 + tiaClamp(score / 4, 0, 2.4));
                 }
+                    if ((card.name === "guohe" || card.name === "shunshou") && get.color(card, player) === "black" && get.position(card) === "h") {
+                        if (tiaDefensiveResourceCount(player, card) <= tiaDefenseFloor(player)) return 2;
+                    }
             },
             aiUseful(player, card, num) {
                 if (get.position(card) !== "h") return;
-                if (get.color(card, player) === "black") return num + tiaKeepValue(card, player, num) * 0.32;
+                const responseScore = tiaEntityDamageResponseScore(card, player);
+                if (responseScore !== null) return Math.max(-2, num - tiaClamp(responseScore / 2.2, 0.6, 5.2));
+                if (get.color(card, player) === "black") return num + tiaKeepValue(card, player, num) * 0.42;
                 if (isEntityShaOrJiu(card) && _status.currentPhase === player && tiaHasWorthwhileDanyi(player)) {
                     return Math.max(-1, num - 1.6);
                 }
             },
             aiValue(player, card, num) {
                 if (get.position(card) !== "h") return;
-                if (get.color(card, player) === "black") return num + tiaBlackFutureAttackValue(card, player) * 0.5;
+                if (get.color(card, player) === "black") return num + tiaKeepValue(card, player, num) * 0.5;
                 if (isEntityShaOrJiu(card) && _status.currentPhase === player && tiaHasWorthwhileDanyi(player)) {
                     return Math.max(0, num - 1.2);
                 }
@@ -588,6 +736,8 @@ tia_ammo: {
         selectCard: -1,
         log: false,
         async precontent(event, trigger, player) {
+            const firstGroup = tiaFirstAmmoGroup(player);
+            const groupLength = firstGroup && firstGroup.complete ? firstGroup.list.length : 1;
             const ammo = takeAmmo(player);
             if (!ammo) {
                 if (!event.result) event.result = {};
@@ -605,6 +755,8 @@ tia_ammo: {
             card.storage.tia_rongguang_state = {
                 round: 1,
                 currentPoint: ammo.number,
+                groupLength,
+                groupRemaining: Math.max(0, groupLength - 1),
                 id: rongguangId,
             };
             if (ammo.source === "daowu") card.nature = "fire";
@@ -621,7 +773,10 @@ tia_ammo: {
                 player(player) {
                     const ammo = getAmmo(player);
                     if (!ammo.length) return 0;
-                    if (tiaAmmoWillFail(ammo[0], 1) && !tiaAmmoIsVisibleKing(ammo[0])) return 0;
+                    const firstGroup = tiaFirstAmmoGroup(player);
+                    if (!firstGroup || !firstGroup.complete) return 0;
+                    if (tiaCompleteAmmoGroupCount(player) < 2 && tiaHasWorthwhileDanyi(player)) return 0;
+                    if (tiaAmmoWillFail(firstGroup.list[0], 1) && !tiaAmmoIsVisibleKing(firstGroup.list[0])) return 0;
                     return 1;
                 },
             },
@@ -676,6 +831,7 @@ tia_ammo: {
             const useCard = event.parent;
             if (!useCard || !useCard._tia_rongguang_id) return false;
             if (!getAmmo(player).length) return false;
+            if (!useCard.storage || !useCard.storage.tia_rongguang_state || useCard.storage.tia_rongguang_state.groupRemaining <= 0) return false;
             // Only the last target triggers extra settlement (multi-target sha, e.g. 方天画戟)
             const targets = useCard.targets || [];
             if (targets.length && event.target && event.target !== targets[targets.length - 1]) return false;
@@ -696,7 +852,7 @@ tia_ammo: {
             const choice = await player.chooseBool()
                 .set("prompt", get.prompt("tia_rongguang"))
                 .set("prompt2", "是否移去最底端的一发弹药，令此【杀】对" + get.translation(target) + "额外结算一次？")
-                .set("ai", () => tiaShouldRongguangExtra(player, target, nextRound))
+                .set("ai", () => tiaShouldRongguangExtra(player, target, nextRound, state))
                 .forResult();
             if (!choice.bool) return;
 
@@ -707,6 +863,7 @@ tia_ammo: {
             game.log(player, "移去了最底端的一发弹药");
 
             state.round = nextRound;
+            state.groupRemaining = Math.max(0, (state.groupRemaining || 0) - 1);
             state.currentPoint = ammo.number;
             useCard.customArgs = useCard.customArgs || {};
             useCard.customArgs.default = useCard.customArgs.default || {};
@@ -733,55 +890,86 @@ tia_ammo: {
 
     tia_daowu: {
         audio: 2,
-        enable: ["chooseToUse", "chooseToRespond"],
         hiddenCard(player, name) {
             return (name === "sha" || name === "shan") && player.countCards("h", card => get.color(card, player) === "black") > 0;
         },
+        group: ["tia_daowu_sha", "tia_daowu_shan", "tia_daowu_collect"],
+    },
+
+    tia_daowu_sha: {
+        audio: "tia_daowu",
+        enable: ["chooseToUse", "chooseToRespond"],
         filter(event, player) {
-            if (!getDaowuContext(event, player)) return false;
-            if (!player.countCards("h", card => get.color(card, player) === "black")) return false;
-            return event.filterCard({ name: "sha", isCard: true }, player, event) || event.filterCard({ name: "shan", isCard: true }, player, event);
+            return isDaowuResponseWindow(event, player) && event.filterCard({ name: "sha", isCard: true }, player, event) && player.countCards("h", card => get.color(card, player) === "black") > 0;
         },
-        chooseButton: {
-            dialog(event, player) {
-                const list = [];
-                if (event.filterCard({ name: "sha", isCard: true }, player, event)) list.push(["基本", "", "sha"]);
-                if (event.filterCard({ name: "shan", isCard: true }, player, event)) list.push(["基本", "", "shan"]);
-                return ui.create.dialog("悼舞", [list, "vcard"], "hidden");
-            },
-            backup(links, player) {
-                const name = links[0][2];
-                return {
-                    viewAs: { name, isCard: true, storage: { tia_daowu: true } },
-                    filterCard(card, player) {
-                        return get.color(card, player) === "black";
-                    },
-                    position: "h",
-                    selectCard: 1,
-                    popname: true,
-                    async precontent(event, trigger, player) {
-                        if (event.result.card) {
-                            event.result.card.storage = event.result.card.storage || {};
-                            event.result.card.storage.tia_daowu = true;
-                        }
-                    },
-                    ai1(card) {
-                        return tiaDaowuResponseScore(card, get.player());
-                    },
-                };
-            },
-            prompt(links) {
-                return "将一张黑色牌当作【" + get.translation(links[0][2]) + "】响应";
-            },
+        viewAsFilter(player) {
+            return player.countCards("h", card => get.color(card, player) === "black") > 0;
+        },
+        filterCard(card, player) {
+            return get.color(card, player) === "black";
+        },
+        viewAs: { name: "sha", isCard: true, storage: { tia_daowu: true } },
+        position: "h",
+        prompt: "将一张黑色手牌当作【杀】响应",
+        check(card) {
+            return tiaDamageResponseCardScore(card, get.player(), "sha");
         },
         ai: {
             respondSha: true,
-            respondShan: true,
-            skillTagFilter(player) {
-                return player.countCards("h", card => get.color(card, player) === "black") > 0;
+            skillTagFilter(player, tag) {
+                if (tag !== "respondSha") return false;
+                const event = _status.event;
+                if (!event || typeof event.filterCard !== "function") return false;
+                return isDaowuResponseWindow(event, player) && event.filterCard({ name: "sha", isCard: true }, player, event) && player.countCards("h", card => get.color(card, player) === "black") > 0;
+            },
+            order(item, player) {
+                if (!isDaowuResponseWindow(_status.event, player)) return -1;
+                if (!player.countCards("h", card => get.color(card, player) === "black")) return -1;
+                const blackCards = player.getCards("h").filter(c => get.color(c, player) === "black");
+	                if (!blackCards.length) return -1;
+	                let best = -Infinity;
+	                blackCards.forEach(c => { best = Math.max(best, tiaDamageResponseCardScore(c, player, "sha")); });
+	                return tiaDamageResponseScoreToOrder(best, 4);
             },
         },
-        group: "tia_daowu_collect",
+    },
+
+    tia_daowu_shan: {
+        audio: "tia_daowu",
+        enable: ["chooseToUse", "chooseToRespond"],
+        filter(event, player) {
+            return isDaowuResponseWindow(event, player) && event.filterCard({ name: "shan", isCard: true }, player, event) && player.countCards("h", card => get.color(card, player) === "black") > 0;
+        },
+        viewAsFilter(player) {
+            return player.countCards("h", card => get.color(card, player) === "black") > 0;
+        },
+        filterCard(card, player) {
+            return get.color(card, player) === "black";
+        },
+        viewAs: { name: "shan", isCard: true, storage: { tia_daowu: true } },
+        position: "h",
+        prompt: "将一张黑色手牌当作【闪】响应",
+        check(card) {
+            return tiaDamageResponseCardScore(card, get.player(), "shan");
+        },
+        ai: {
+            respondShan: true,
+            skillTagFilter(player, tag) {
+                if (tag !== "respondShan") return false;
+                const event = _status.event;
+                if (!event || typeof event.filterCard !== "function") return false;
+                return isDaowuResponseWindow(event, player) && event.filterCard({ name: "shan", isCard: true }, player, event) && player.countCards("h", card => get.color(card, player) === "black") > 0;
+            },
+            order(item, player) {
+                if (!isDaowuResponseWindow(_status.event, player)) return -1;
+                if (!player.countCards("h", card => get.color(card, player) === "black")) return -1;
+                const blackCards = player.getCards("h").filter(c => get.color(c, player) === "black");
+	                if (!blackCards.length) return -1;
+	                let best = -Infinity;
+	                blackCards.forEach(c => { best = Math.max(best, tiaDamageResponseCardScore(c, player, "shan")); });
+	                return tiaDamageResponseScoreToOrder(best, 4);
+            },
+        },
     },
 
     tia_daowu_collect: {
@@ -831,7 +1019,9 @@ tia_tiya: "缇娅",
 
 var sort = ["tia_tiya"];
 
+
 window.nihilModules["tia"] = {
+    init: function () {},
     character: character,
     card: cards,
     skill: skills,

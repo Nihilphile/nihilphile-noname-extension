@@ -16,13 +16,19 @@
     }
 
     function guanyuMakeSha(card) {
-        if (get.autoViewAs) return get.autoViewAs({ name: "sha" }, card ? [card] : []);
+        const x = card ? guanyuWushengX(card) : 1;
+        if (get.autoViewAs) {
+            const sha = get.autoViewAs({ name: "sha" }, card ? [card] : []);
+            sha._rangeX = x;
+            return sha;
+        }
         return {
             name: "sha",
             cards: card ? [card] : [],
             suit: card ? get.suit(card) : undefined,
             number: card ? get.number(card) : undefined,
             color: card ? get.color(card) : undefined,
+            _rangeX: x,
         };
     }
 
@@ -39,9 +45,8 @@
     }
 
     function guanyuCanBonus(card, target, player) {
-        const num = guanyuCardNumber(card, player);
-        if (!num || !target) return false;
-        return target.hp > Math.ceil(num / 3);
+        if (!card || !target) return false;
+        return target.hp > guanyuWushengX(card, player);
     }
 
     function guanyuEnemyThreat(player, target) {
@@ -80,69 +85,132 @@
         return guanyuClamp(tendency, 0.7, 2.6);
     }
 
-    function guanyuFutureAttackValue(card, player) {
+    function guanyuWushengX(card, player) {
         const num = guanyuCardNumber(card, player) || 13;
-        let value = Math.max(0.4, (14 - num) / 3);
-        if (num <= 3) value += 0.8;
-        else if (num <= 6) value += 0.35;
-        if (get.name(card, player) === "sha") value += 0.4;
-        return value;
+        return guanyuClamp(Math.ceil(num / 3), 1, 5);
     }
 
-    function guanyuDefenseValue(card, player) {
-        let value = get.useful(card, player) + get.value(card, player) / 3;
+    function guanyuWushengBaseKeepValue(card, player) {
+        const x = guanyuWushengX(card, player);
+        if (x === 1) return 5;
+        if (x === 2) return 4;
+        if (x === 3) return 3;
+        if (x === 4) return 2;
+        return 1;
+    }
+
+    function guanyuWushengDistanceBonus(card, player) {
+        const x = guanyuWushengX(card, player);
+        const enemies = game.filterPlayer(current => current !== player && get.attitude(player, current) < 0 && current.isIn && current.isIn());
+        if (!enemies.length) return 0;
+        let bonus = 0;
+        const step = 1.3;
+        if (x >= 2 && !enemies.some(enemy => get.distance(player, enemy) <= 1)) bonus += step;
+        if (x >= 3 && !enemies.some(enemy => get.distance(player, enemy) <= 2)) bonus += step;
+        if (x >= 4 && !enemies.some(enemy => get.distance(player, enemy) <= 3)) bonus += step;
+        if (x >= 5 && !enemies.some(enemy => get.distance(player, enemy) <= 4)) bonus += step;
+        return bonus;
+    }
+
+    function guanyuWushengFutureValue(card, player) {
+        if (!card || get.color(card, player) !== "red") return 0;
+        return guanyuWushengBaseKeepValue(card, player) + guanyuWushengDistanceBonus(card, player);
+    }
+
+    function guanyuCardDefenseValue(card, player, base) {
+        let value = typeof base === "number" ? Math.max(0, base) : 0;
         const name = get.name(card, player);
-        if (name === "tao") value += player.hp <= 2 ? 6 : 3;
-        else if (name === "shan") value += player.hp <= 2 ? 3.5 : 1.5;
-        else if (name === "wuxie") value += 2;
+        if (name === "tao") value += player.hp <= 2 ? 8 : 4.5;
+        else if (name === "jiu") value += player.hp <= 2 ? 4.5 : 1.2;
+        else if (name === "shan") value += player.hp <= 2 ? 4.5 : 1.8;
+        else if (name === "wuxie") value += 3.2;
+        else if (name === "taoyuan") value += player.hp <= 2 ? 2.2 : 0.6;
+        else if (name === "wugu") value += 0.8;
+        else if (name === "sha") value += 0.4;
+        if (get.color(card, player) === "red" && player.hp <= 2 && ["tao", "jiu", "shan", "wuxie"].includes(name)) value += 1.2;
         const subtype = get.subtype(card, false);
-        if (get.position(card) === "e") value += 1;
-        if ((subtype === "equip2" || subtype === "equip3") && player.hp <= 2) value += 2;
+        if (get.position(card) === "e") value += 1.2;
+        if (subtype === "equip2") value += player.hp <= 2 ? 2.8 : 1.2;
+        if (subtype === "equip3") value += player.hp <= 2 ? 1.8 : 0.8;
         return value;
     }
 
-    function guanyuKeepValue(card, player) {
-        return guanyuFutureAttackValue(card, player) * guanyuOffenseTendency(player) + guanyuDefenseValue(card, player) * guanyuDefenseTendency(player);
+    function guanyuWushengKeepValue(card, player, base) {
+        const offense = guanyuOffenseTendency(player);
+        const defense = guanyuDefenseTendency(player);
+        return guanyuWushengFutureValue(card, player) * offense + guanyuCardDefenseValue(card, player, base) * defense;
+    }
+
+    function guanyuWushengUseCost(card, player) {
+        return guanyuWushengKeepValue(card, player, 0);
+    }
+
+    function guanyuCanReachByWusheng(card, player, target) {
+        if (!card || !player || !target) return false;
+        return get.distance(player, target) <= guanyuWushengX(card, player);
     }
 
     function guanyuWushengTargetScore(player, target, sourceCard) {
         if (!target || target === player || !target.isIn || !target.isIn()) return -Infinity;
         if (get.attitude(player, target) >= 0) return -Infinity;
         const sha = guanyuMakeSha(sourceCard);
-        if (player.canUse && !player.canUse(sha, target)) return -Infinity;
+        sha._rangeX = guanyuWushengX(sourceCard, player);
+        if (!guanyuCanReachByWusheng(sourceCard, player, target)) return -Infinity;
+        if (lib.filter.targetEnabled(sha, player, target) === false) return -Infinity;
 
         let score = get.effect(target, sha, player, player);
         const bonus = guanyuCanBonus(sourceCard, target, player);
         const damage = bonus ? 2 : 1;
         const threat = guanyuEnemyThreat(player, target);
-        if (bonus) score += 1.6 + Math.min(1.2, target.hp * 0.25);
-        if (target.hp <= damage) score += 4.2;
-        else if (target.hp <= damage + 1) score += 1.5;
+        const kill = target.hp <= damage;
+        if (kill) score += 12 + Math.min(4, threat);
+        if (bonus) score += 5.2 + Math.min(1.6, target.hp * 0.28);
+        if (!kill && target.hp <= damage + 1) score += 1.4;
         score += Math.min(1.5, (threat - 1) * 0.45);
         if (target.countCards("h") > 0) score += 0.35;
         score -= Math.max(0, target.countCards("h") - 2) * 0.18;
         return score;
     }
 
-    function guanyuBestWushengScore(player, sourceCard) {
-        let best = -Infinity;
+    function guanyuWushengActionPriority(player, target, sourceCard) {
+        if (!target || target === player || get.attitude(player, target) >= 0) return 0;
+        if (!guanyuCanReachByWusheng(sourceCard, player, target)) return 0;
+        const sha = guanyuMakeSha(sourceCard);
+        sha._rangeX = guanyuWushengX(sourceCard, player);
+        if (lib.filter.targetEnabled(sha, player, target) === false) return 0;
+        const damage = guanyuCanBonus(sourceCard, target, player) ? 2 : 1;
+        if (target.hp <= damage) return 3;
+        if (damage > 1) return 2;
+        return 1;
+    }
+
+    function guanyuBestWushengAction(player, sourceCard) {
+        let best = null;
         game.filterPlayer(current => {
-            best = Math.max(best, guanyuWushengTargetScore(player, current, sourceCard));
+            const priority = guanyuWushengActionPriority(player, current, sourceCard);
+            if (!priority) return;
+            const score = guanyuWushengTargetScore(player, current, sourceCard);
+            if (score <= 0 && priority < 3) return;
+            if (!best || priority > best.priority || priority === best.priority && score > best.score) {
+                best = { target: current, priority, score };
+            }
         });
         return best;
     }
 
     function guanyuWushengUseScore(player, card) {
-        const best = guanyuBestWushengScore(player, card);
-        if (best <= 0) return -guanyuKeepValue(card, player);
-        return best * 2.2 - guanyuKeepValue(card, player);
+        const action = guanyuBestWushengAction(player, card);
+        const cost = guanyuWushengUseCost(card, player);
+        if (!action) return -cost;
+        const base = action.priority === 3 ? 100 : action.priority === 2 ? 60 : 20;
+        return base + action.score * 2.2 - cost;
     }
 
     function guanyuWushengCheck(card) {
         const player = _status.event && _status.event.player;
-        if (!player) return 5 - get.value(card);
+        if (!player) return 0;
         if (_status.event.name === "chooseToRespond") {
-            return 10 / Math.max(1, guanyuKeepValue(card, player));
+            return 10 / Math.max(1, guanyuWushengUseCost(card, player));
         }
         return guanyuWushengUseScore(player, card);
     }
@@ -154,7 +222,9 @@
             if (get.color(card, player) === "red") best = Math.max(best, guanyuWushengUseScore(player, card));
         });
         if (best <= 0) return 0;
-        return get.order({ name: "sha" }) + 0.25 + guanyuClamp(best / 5, 0, 1.6);
+        if (best >= 90) return get.order({ name: "sha" }) + 2.2;
+        if (best >= 50) return get.order({ name: "sha" }) + 1.2;
+        return get.order({ name: "sha" }) + 0.2 + guanyuClamp(best / 30, 0, 0.8);
     }
 
     function guanyuWushengEffect(card, player, target) {
@@ -212,6 +282,16 @@
                     var dist = get.distance(player, target);
                     return dist <= card._rangeX;
                 }
+            },
+            aiValue(player, card, num) {
+                if (get.position(card) !== "h" && get.position(card) !== "s") return;
+                if (get.color(card, player) !== "red") return;
+                return num + guanyuWushengKeepValue(card, player, num) * 0.42;
+            },
+            aiUseful(player, card, num) {
+                if (get.position(card) !== "h" && get.position(card) !== "s") return;
+                if (get.color(card, player) !== "red") return;
+                return num + guanyuWushengKeepValue(card, player, num) * 0.36;
             },
         },
         check: guanyuWushengCheck,
@@ -345,7 +425,7 @@
 
         nihil_wusheng: "武圣",
         nihil_wusheng_info:
-            "你可将一张红色牌当【杀】使用或打出。你使用的红【杀】，对体力大于X的角色伤害+1。（X为此红【杀】点数/3，向上取整）",
+            "你可将一张红色牌当【杀】使用或打出，且此【杀】的距离为X。你使用的红【杀】，对体力大于X的角色伤害+1。（X为此红【杀】点数/3，向上取整）",
 
         nihil_duanyi: "断义",
         nihil_duanyi_info:
