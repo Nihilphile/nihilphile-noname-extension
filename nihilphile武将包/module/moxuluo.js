@@ -33,9 +33,14 @@
             hp: 4,
             skills: [
                 "nihil_shiying",
-                "nihil_shiying_stack",
+                "nihil_shiying_stack_sha_flag",
+                "nihil_shiying_stack_sha",
+                "nihil_shiying_stack_trick",
+                "nihil_shiying_stack_basic",
+                "nihil_shiying_stack_delay",
                 "nihil_shiying_overflow",
                 "nihil_pomo_track",
+                "nihil_pomo_track_sha",
                 "nihil_pomo",
             ],
             img: image("nihil_moxuluo"),
@@ -67,98 +72,235 @@
             },
             mod: {
                 targetEnabled: function (card, player, target) {
-                    if (player === target) return;
-                    if (isAdapted(target, card)) return false;
+                    if (isAdapted(target, card)) {
+                        console.log("[适·block] 拦截 " + card.name + " 对 " + get.translation(target));
+                        return false;
+                    }
                 },
             },
             ai: {
                 effect: {
                     target: function (card, player, target, current) {
-                        if (player === target) return;
                         if (isAdapted(target, card)) return "zeroplayertarget";
                     },
                 },
             },
-            group: ["nihil_shiying_stack", "nihil_shiying_overflow"],
+            group: ["nihil_shiying_stack_sha_flag", "nihil_shiying_stack_sha", "nihil_shiying_stack_trick", "nihil_shiying_stack_basic", "nihil_shiying_stack_delay", "nihil_shiying_overflow"],
         },
 
-        // 适应·子技Ⅰ：被命中 → 叠适 + 溢出检查
-        nihil_shiying_stack: {
+        // 适应·子技Ⅰa-flag：杀命中 → 打标记（延迟到 useCardToEnd 再叠）
+        nihil_shiying_stack_sha_flag: {
             charlotte: true,
             forced: true,
             popup: false,
-            trigger: {
-                target: ["shaHit", "useCardToEnd"],
-                player: ["lebu", "bingliang", "shandian"],
-            },
+            trigger: { target: "shaHit" },
             filter: function (event, player) {
-                var name = event.name;
-                var card, key;
-
-                // 杀命中
-                if (name === "shaHit") {
-                    card = event.card;
-                    if (!card || card.name !== "sha") return false;
-                    if (event.player === player) return false;  // 不是自己打自己
-                    key = markKey(card);
-                }
-                // 普通锦囊结算完毕
-                else if (name === "useCardToEnd") {
-                    card = event.card || (event.parent && event.parent.card);
-                    if (!card || card.name === "sha") return false;
-                    if (get.type(card) !== "trick") return false;
-                    if (get.type(card) === "delay") return false;
-                    if (event.parent && event.parent._neutralized) return false;
-                    if (event.player === player) return false;
-                    key = card.name;
-                }
-                // 延时锦囊生效
-                else if (name === "lebu" || name === "bingliang" || name === "shandian") {
-                    key = name;
-                }
-                else {
-                    return false;
-                }
-
+                var card = event.card;
+                if (!card || card.name !== "sha") return false;
+                var key = markKey(card);
                 var marks = player.getStorage(MARK);
                 if (marks && marks.includes(key)) return false;
-                // 暂存 key 供 content 使用
+                player.storage._shiying_pending_sha = key;
+                console.log("[适·sha] flag: " + key);
+                return false; // 不执行业务，等 useCardToEnd
+            },
+        },
+
+        // 适应·子技Ⅰa：杀结算完毕 → 叠适（濒死已结束）
+        nihil_shiying_stack_sha: {
+            charlotte: true,
+            forced: true,
+            popup: false,
+            trigger: { target: "useCardToEnd" },
+            filter: function (event, player) {
+                var card = event.card || (event.parent && event.parent.card);
+                if (!card || card.name !== "sha") return false;
+                var key = player.storage._shiying_pending_sha;
+                if (!key) return false;
+                delete player.storage._shiying_pending_sha;
+                console.log("[适·sha] useCardToEnd, key=", key);
                 event._shiying_key = key;
                 return true;
             },
             async content(event, trigger, player) {
                 var key = trigger._shiying_key;
                 if (!key) return;
-
                 player.markAuto(MARK, key);
                 player.logSkill("nihil_shiying");
                 game.log(player, "适应了", "#y" + get.translation(key));
                 player.updateMarks();
-
-                // 溢出检查（叠后立即判断）
-                if (player.countMark(MARK) > player.hp) {
-                    player.clearMark(MARK);
+                // 此时伤害和濒死已结算完毕，hp 是最终值
+                var cnt2 = player.countMark(MARK);
+                console.log("[适] 叠后overflow检测: count=" + cnt2 + " hp=" + player.hp + (cnt2 > player.hp ? "  TRIGGER清空!" : ""));
+                if (cnt2 > player.hp) {
+                    player.storage[MARK].length = 0;
+                    player.unmarkSkill(MARK);
                     player.logSkill("nihil_shiying");
                     game.log(player, "的", "#g适", "超过了体力，全部弃置之并回复1点体力");
+                    player.updateMarks();
                     await player.recover(1);
+                    console.log("[适] sha 溢出处理完成");
                 }
             },
         },
 
-        // 适应·子技Ⅱ：溢出备用触发（体力下降后检测）
+        // 适应·子技Ⅰb：普通锦囊结算完毕 → 叠适
+        nihil_shiying_stack_trick: {
+            charlotte: true,
+            forced: true,
+            popup: false,
+            trigger: { target: "useCardToEnd" },
+            filter: function (event, player) {
+                var card = event.card || (event.parent && event.parent.card);
+                if (!card || card.name === "sha") {
+                    console.warn("[适·trick] card无效或是杀:", card && card.name);
+                    return false;
+                }
+                var ctype = get.type(card);
+                if (ctype !== "trick") {
+                    console.warn("[适·trick] 非锦囊 type=", ctype, " name=", card.name);
+                    return false;
+                }
+                if (ctype === "delay") {
+                    console.warn("[适·trick] 延时锦囊跳过");
+                    return false;
+                }
+                if (event.parent && event.parent._neutralized) {
+                    console.warn("[适·trick] 被无懈抵消");
+                    return false;
+                }
+                var key = card.name;
+                var marks = player.getStorage(MARK);
+                if (marks && marks.includes(key)) {
+                    console.warn("[适·trick] 已适应此牌:", key);
+                    return false;
+                }
+                console.log("[适·trick] V filter通过, key=", key);
+                event._shiying_key = key;
+                return true;
+            },
+            async content(event, trigger, player) {
+                var key = trigger._shiying_key;
+                if (!key) return;
+                player.markAuto(MARK, key);
+                player.logSkill("nihil_shiying");
+                game.log(player, "适应了", "#y" + get.translation(key));
+                player.updateMarks();
+                var cnt2 = player.countMark(MARK);
+                console.log("[适] 叠后overflow检测: count=" + cnt2 + " hp=" + player.hp + (cnt2 > player.hp ? "  TRIGGER清空!" : ""));
+                if (cnt2 > player.hp) {
+                    player.storage[MARK].length = 0;
+                    player.unmarkSkill(MARK);
+                    player.logSkill("nihil_shiying");
+                    game.log(player, "的", "#g适", "超过了体力，全部弃置之并回复1点体力");
+                    player.updateMarks();
+                    await player.recover(1);
+                    console.log("[适] trick/delay 溢出处理完成");
+                }
+            },
+        },
+
+        // 适应·子技Ⅰc：基本牌（桃/酒）结算完毕 → 叠适
+        nihil_shiying_stack_basic: {
+            charlotte: true,
+            forced: true,
+            popup: false,
+            trigger: { target: "useCardToEnd" },
+            filter: function (event, player) {
+                var card = event.card || (event.parent && event.parent.card);
+                if (!card) return false;
+                if (get.type(card) !== "basic") return false;
+                if (card.name !== "tao" && card.name !== "jiu") return false;
+                if (event.parent && event.parent._neutralized) return false;
+                var key = card.name;
+                var marks = player.getStorage(MARK);
+                if (marks && marks.includes(key)) return false;
+                console.log("[适·basic] V filter通过, key=", key);
+                event._shiying_key = key;
+                return true;
+            },
+            async content(event, trigger, player) {
+                var key = trigger._shiying_key;
+                if (!key) return;
+                player.markAuto(MARK, key);
+                player.logSkill("nihil_shiying");
+                game.log(player, "适应了", "#y" + get.translation(key));
+                player.updateMarks();
+                var cnt2 = player.countMark(MARK);
+                console.log("[适] 叠后overflow检测: count=" + cnt2 + " hp=" + player.hp + (cnt2 > player.hp ? "  TRIGGER清空!" : ""));
+                if (cnt2 > player.hp) {
+                    player.storage[MARK].length = 0;
+                    player.unmarkSkill(MARK);
+                    player.logSkill("nihil_shiying");
+                    game.log(player, "的", "#g适", "超过了体力，全部弃置之并回复1点体力");
+                    player.updateMarks();
+                    await player.recover(1);
+                    console.log("[适] basic 溢出处理完成");
+                }
+            },
+        },
+
+        // 适应·子技Ⅰd：延时锦囊生效 → 叠适（仅 phaseJudge，不含 useCard）
+        nihil_shiying_stack_delay: {
+            charlotte: true,
+            forced: true,
+            popup: false,
+            trigger: { player: ["lebuEnd", "bingliangEnd", "shandianEnd"] },
+            filter: function (event, player) {
+                // 仅 phaseJudge 阶段的生效事件
+                if (event.getParent().name !== "phaseJudge") return false;
+                // 仅判定生效（_result.bool===false）才叠，天过的不叠
+                if (!event._result || event._result.bool !== false) return false;
+                // 从 Event 名提取牌名（"lebuEnd"→"lebu"）
+                var key = event.name.replace(/End$/, "");
+                var marks = player.getStorage(MARK);
+                if (marks && marks.includes(key)) {
+                    console.warn("[适·delay] 已适应此牌:", key);
+                    return false;
+                }
+                console.log("[适·delay] V filter通过, key=", key);
+                event._shiying_key = key;
+                return true;
+            },
+            async content(event, trigger, player) {
+                var key = trigger._shiying_key;
+                if (!key) return;
+                player.markAuto(MARK, key);
+                player.logSkill("nihil_shiying");
+                game.log(player, "适应了", "#y" + get.translation(key));
+                player.updateMarks();
+                var cnt2 = player.countMark(MARK);
+                console.log("[适] 叠后overflow检测: count=" + cnt2 + " hp=" + player.hp + (cnt2 > player.hp ? "  TRIGGER清空!" : ""));
+                if (cnt2 > player.hp) {
+                    player.storage[MARK].length = 0;
+                    player.unmarkSkill(MARK);
+                    player.logSkill("nihil_shiying");
+                    game.log(player, "的", "#g适", "超过了体力，全部弃置之并回复1点体力");
+                    player.updateMarks();
+                    await player.recover(1);
+                    console.log("[适] trick/delay 溢出处理完成");
+                }
+            },
+        },
+
+        // 适应·子技Ⅱ：溢出触发（loseHpEnd，濒死已结束；卡牌叠适内的 overflow 处理 useCard 路径）
         nihil_shiying_overflow: {
             charlotte: true,
             forced: true,
             popup: false,
-            trigger: { player: "changeHpAfter" },
+            trigger: { player: ["damageEnd", "loseHpEnd"] },
             filter: function (event, player) {
-                return event.num < 0
-                    && player.countMark(MARK) > player.hp;
+                var cnt = player.countMark(MARK);
+                if (cnt <= player.hp) return false;
+                console.log("[适·overflow] " + event.name + " 触发溢出! count=" + cnt + " hp=" + player.hp);
+                return true;
             },
             async content(event, trigger, player) {
-                player.clearMark(MARK);
+                player.storage[MARK].length = 0;
+                player.unmarkSkill(MARK);
                 player.logSkill("nihil_shiying");
                 game.log(player, "的", "#g适", "超过了体力，全部弃置之并回复1点体力");
+                player.updateMarks();
                 await player.recover(1);
             },
         },
@@ -171,32 +313,53 @@
             trigger: { player: "eventNeutralized" },
             filter: function (event, player) {
                 var card = event.card;
-                var target = event.target;
-
-                // 追溯缺失的 card / target
-                var evt = event;
-                while (evt && (!card || !target)) {
-                    if (!card && evt.card) card = evt.card;
-                    if (!target && evt.target && evt.target !== player) target = evt.target;
-                    evt = evt.parent;
-                }
-
-                if (!card || !target || !target.isIn()) return false;
+                // 不要 AOE / 延时锦囊
+                if (!card) return false;
                 if (card.name !== "sha" && get.type(card) !== "trick") return false;
                 if (get.type(card) === "delay") return false;
+                // 单体锦囊：目标数必须为 1（或杀天然单目标）
+                var allTargets = event.targets;
+                if (card.name !== "sha" && allTargets && allTargets.length > 1) return false;
 
-                // 找到 useCard 祖先
+                var target = event.target;
+                if (!target || !target.isIn()) return false;
+
                 var useCard = event.getParent("useCard");
                 if (!useCard) return false;
 
-                // 打标记
                 if (!useCard._pomo_targets) useCard._pomo_targets = [];
                 if (!useCard._pomo_card) useCard._pomo_card = card;
                 if (!useCard._pomo_targets.includes(target)) {
                     useCard._pomo_targets.push(target);
                 }
+                console.log("[破魔·track] 标记: card=" + card.name + " target=" + get.translation(target));
+                return false;
+            },
+        },
 
-                return false; // charlotte，无需 content
+        // 破魔·子技（sha）：杀被闪避/藤甲取消 → 打标记
+        nihil_pomo_track_sha: {
+            charlotte: true,
+            forced: true,
+            popup: false,
+            trigger: { target: ["shaMiss", "shaCancelled"] },
+            filter: function (event, player) {
+                var card = event.card;
+                if (!card || card.name !== "sha") return false;
+
+                var target = event.target;
+                if (!target || !target.isIn()) return false;
+
+                var useCard = event.getParent("useCard");
+                if (!useCard) return false;
+
+                if (!useCard._pomo_targets) useCard._pomo_targets = [];
+                if (!useCard._pomo_card) useCard._pomo_card = card;
+                if (!useCard._pomo_targets.includes(target)) {
+                    useCard._pomo_targets.push(target);
+                }
+                console.log("[破魔·track-sha] 标记: event=" + event.name + " target=" + get.translation(target));
+                return false;
             },
         },
 
@@ -217,76 +380,74 @@
             async content(event, trigger, player) {
                 var card = trigger._pomo_card;
                 var targets = trigger._pomo_targets;
-
-                // 清理标记
                 delete trigger._pomo_targets;
                 delete trigger._pomo_card;
 
                 if (!card || !targets || !targets.length) return event.finish();
 
-                // 筛有效目标
-                targets = targets.filter(function (t) {
-                    return t && t.isIn();
-                });
+                targets = targets.filter(function (t) { return t && t.isIn(); });
                 if (!targets.length) return event.finish();
 
-                // 确认弹窗
                 var targetNames = targets.map(function (t) {
                     return get.translation(t);
                 }).join("、");
-                var choice = await player
-                    .chooseBool()
-                    .set("prompt", get.prompt("nihil_pomo"))
-                    .set(
-                        "prompt2",
-                        "是否发动【破魔】？（将对" +
-                            targetNames +
-                            "使用同名牌）"
-                    )
-                    .set("ai", function () {
-                        return targets.some(function (t) {
-                            return get.attitude(player, t) < 0;
-                        });
+
+                player.logSkill("nihil_pomo", targets);
+                console.log("[破魔] 触发, card=" + card.name);
+
+                // Step 1: 判定（无需确认，直接判）
+                var result = await player.judge().forResult();
+                var color = result.color;
+                console.log("[破魔] 判定: color=" + color);
+
+                if (color !== "black") {
+                    game.log(player, "判定结果为", result.card, "（红色），破魔失败");
+                    return event.finish();
+                }
+
+                game.log(player, "判定结果为", result.card, "（黑色），可以弃一张牌发动破魔");
+
+                // Step 3: 弃置一张牌
+                var discardResult = await player
+                    .chooseToDiscard(1, "he")
+                    .set("prompt", "弃置一张牌，视为对" + targetNames + "打出同名牌（不可响应）")
+                    .set("ai", function (card2) {
+                        return 6 - get.value(card2);
                     })
                     .forResult();
 
-                if (!choice.bool) return event.finish();
+                if (!discardResult.bool || !discardResult.cards || !discardResult.cards.length) {
+                    game.log(player, "取消了破魔");
+                    return event.finish();
+                }
+
+                await player.discard(discardResult.cards);
+
+                // Step 4: 打出复制牌（不可响应）
+                var copy = get.copy(card);
+                copy.isCard = true;
+
+                // 杀复制：给目标加 qinggang2 破防具（藤甲/仁王盾）+ directHit 跳闪/八卦
+                if (card.name === "sha") {
+                    for (var i = 0; i < targets.length; i++) {
+                        targets[i].addTempSkill("qinggang2");
+                        if (!Array.isArray(targets[i].storage.qinggang2)) {
+                            targets[i].storage.qinggang2 = [];
+                        }
+                        targets[i].storage.qinggang2.push(copy);
+                    }
+                }
 
                 player.logSkill("nihil_pomo", targets);
+                game.log(player, "弃置了", discardResult.cards, "，",
+                    "#y破魔", "！对", targets, "打出了", "#y" + get.translation(card.name));
 
-                // 判定
-                var judge = await player.judge();
-                var judgeCard = judge.card || judge;
-                var color = get.color(judgeCard, player);
+                var useCardEvent = player.useCard(copy, targets, event.name);
+                useCardEvent.set("directHit", targets);
+                useCardEvent.set("nowuxie", true);
+                await useCardEvent;
 
-                if (color === "black") {
-                    game.log(
-                        player,
-                        "判定结果为",
-                        judgeCard,
-                        "（黑色），",
-                        "#y破魔",
-                        "发动！"
-                    );
-                    // 印同名牌，穿透使用
-                    var copy = get.copy(card);
-                    copy.isCard = true;
-                    if (!copy.storage) copy.storage = {};
-                    copy.storage.nowuxie = true;
-
-                    player
-                        .useCard(copy, targets, event.name)
-                        .set("directHit", targets)
-                        .set("nowuxie", true);
-                } else {
-                    game.log(
-                        player,
-                        "判定结果为",
-                        judgeCard,
-                        "（红色），获得了判定牌"
-                    );
-                    await player.gain(judgeCard, "gain2", "log");
-                }
+                console.log("[破魔] 完成");
             },
             ai: {
                 order: 9,
@@ -309,16 +470,15 @@
 
         nihil_shiying: "适应",
         nihil_shiying_info:
-            "<b>锁定技，</b>当你成为其他角色的一张锦囊牌/【杀】的目标并结算后，" +
+            "<b>锁定技，</b>当你成为一张锦囊牌/【杀】的目标并结算后，" +
             "若此牌没有被抵消，将其明置于你的武将牌上方作为【适】。" +
             "与【适】同名的锦囊牌和与【适】同名且属性相同的【杀】对你无效。" +
             "当【适】数量大于你当前体力时，全部弃置之且恢复一点体力。",
 
         nihil_pomo: "破魔",
         nihil_pomo_info:
-            "当你使用的【杀】或普通锦囊牌被抵消或无效后，" +
-            "你可判定，若为黑色则视为对抵消来源使用一张同名牌（不可响应且不可被无效）；" +
-            "若为红色则获得判定牌。",
+            "当你使用的【杀】被闪避/防具抵消，或单体锦囊牌被无效后，" +
+            "你可判定，若为黑色则你可弃置一张牌，视为打出一张同名牌（不可响应，无视防具）。",
     };
 
     var sort = ["nihil_moxuluo"];
