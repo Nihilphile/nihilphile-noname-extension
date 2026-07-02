@@ -831,7 +831,7 @@ tia_ammo: {
             const useCard = event.parent;
             if (!useCard || !useCard._tia_rongguang_id) return false;
             if (!getAmmo(player).length) return false;
-            if (!useCard.storage || !useCard.storage.tia_rongguang_state || useCard.storage.tia_rongguang_state.groupRemaining <= 0) return false;
+            if (useCard.storage && useCard.storage.tia_rongguang_state && useCard.storage.tia_rongguang_state.groupRemaining <= 0 && !event.isMine()) return false;
             // Only the last target triggers extra settlement (multi-target sha, e.g. 方天画戟)
             const targets = useCard.targets || [];
             if (targets.length && event.target && event.target !== targets[targets.length - 1]) return false;
