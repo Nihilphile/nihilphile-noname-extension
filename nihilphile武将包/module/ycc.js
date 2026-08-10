@@ -29,8 +29,10 @@ function yccYuceMaxReachable(player) {
 }
 
 function yccYuceShaValue(player) {
-    if (!player.hasValueTarget(YCC_SHA_CARD)) return 0;
-    return player.getUseValue(YCC_SHA_CARD);
+    if (!yccYuceHasEnemyShaTarget(player)) return 0;
+    const value = player.getUseValue(YCC_SHA_CARD);
+    // 御策的【杀】不消耗手牌且不计入次数；只要能攻击敌方，就至少有基础收益。
+    return Math.max(1, typeof value === "number" ? value : 0);
 }
 
 function yccYucePlanActive(player) {
@@ -50,6 +52,24 @@ function yccYuceHasPositiveShaTarget(player) {
     return game.hasPlayer(target => {
         return target !== player && player.canUse(YCC_SHA_CARD, target) && get.effect(target, YCC_SHA_CARD, player, player) > 0;
     });
+}
+
+function yccYuceHasEnemyShaTarget(player) {
+    return game.hasPlayer(target => {
+        return target !== player && player.canUse(YCC_SHA_CARD, target) && get.attitude(player, target) < 0;
+    });
+}
+
+function yccYuceTargetScore(player, target) {
+    const attitude = get.attitude(player, target);
+    const rawEffect = get.effect(target, YCC_SHA_CARD, player, player);
+    const effect = typeof rawEffect === "number" && !Number.isNaN(rawEffect)
+        ? Math.max(-50, Math.min(50, rawEffect))
+        : 0;
+    // 御策是零牌耗的额外【杀】：敌我关系决定能否出手，通用牌效只负责敌方之间的排序。
+    if (attitude < 0) return 100 - attitude + effect;
+    if (attitude > 0) return -100 - attitude + effect;
+    return effect;
 }
 
 function yccYuceEquipSubtypes(card) {
@@ -419,17 +439,19 @@ ycc_huangming: {
 
             if (isMax) {
                 const shaCard = { name: "sha", isCard: true };
-                if (player.hasValueTarget(shaCard)) {
+                // 人类玩家只受规则合法性限制；不能让通用 AI 收益门槛吞掉技能提示。
+                if (player.hasUseTarget(shaCard)) {
                     const shaResult = await player
                         .chooseBool()
                         .set("prompt", get.prompt("ycc_yuce"))
                         .set("prompt2", "你可以视为使用一张【杀】")
-                        .set("ai", () => player.hasValueTarget(shaCard))
+                        .set("ai", () => yccYuceHasEnemyShaTarget(player))
                         .forResult();
 
                     if (shaResult.bool) {
                         player.logSkill("ycc_yuce");
                         await player.chooseUseTarget(shaCard, true, false)
+                            .set("ai", target => yccYuceTargetScore(player, target))
                             .set("logSkill", "ycc_yuce");
                     }
                 }

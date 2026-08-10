@@ -10,18 +10,18 @@ tree when the game requires that layout.
 
 ## Projects
 
-| Project | Directory | Purpose |
-|---------|-----------|---------|
-| 御承宸 | `ycc/` | Online-capable custom general extension and tests |
+| Project         | Directory        | Purpose                                                           |
+| --------------- | ---------------- | ----------------------------------------------------------------- |
+| 御承宸             | `ycc/`           | Online-capable custom general extension and tests                 |
 | Nihilphile Pack | (extension tree) | Distributable character extension package; 御承宸 is first character |
 
 ## Extension Source Locations
 
-| Item | Path |
-|------|------|
-| Nihilphile extension source | `noname/apps/core/extension/nihilphile/` |
-| Nihilphile extension runtime | `game/noname/resources/app/extension/nihilphile/` |
-| yuchengchen extension source (legacy) | `noname/apps/core/extension/yuchengchen/` |
+| Item                                   | Path                                               |
+| -------------------------------------- | -------------------------------------------------- |
+| Nihilphile extension source            | `noname/apps/core/extension/nihilphile/`           |
+| Nihilphile extension runtime           | `game/noname/resources/app/extension/nihilphile/`  |
+| yuchengchen extension source (legacy)  | `noname/apps/core/extension/yuchengchen/`          |
 | yuchengchen extension runtime (legacy) | `game/noname/resources/app/extension/yuchengchen/` |
 
 ## Conventions
@@ -31,4 +31,3 @@ tree when the game requires that layout.
 - Use CC_Crew group `ycc` for 御承宸 worker dispatch.
 - Do not mix raw worker result stores into this directory. Link to result paths
   from manifests instead.
-
