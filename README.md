@@ -31,3 +31,7 @@ tree when the game requires that layout.
 - Use CC_Crew group `ycc` for 御承宸 worker dispatch.
 - Do not mix raw worker result stores into this directory. Link to result paths
   from manifests instead.
+
+## Deprecated
+
+- `nihilphile武将包-lazy/` — **已弃用**（2026-08-13），请使用 `nihilphile武将包/`。详见 [DEPRECATED.md](nihilphile武将包-lazy/DEPRECATED.md)。
