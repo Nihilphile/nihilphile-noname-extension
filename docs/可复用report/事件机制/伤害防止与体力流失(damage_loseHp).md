@@ -80,7 +80,8 @@ cancel(all, player, notrigger) {
 - `damage` / `damageZero` 不会触发
 - `damageCancelled` 会触发（如果 `notrigger !== true`）
 - 事件立即 `finish()`，后续 content steps 不执行
-- **仍然会依次走** `damageEnd` 和 `damageAfter`（因为 `finished=true`，event loop 会继续走完 End/After 阶段）
+- 默认 `trigger.cancel()` 会通过 `untrigger()` 将 `_triggered` 置为 5，**不会再走** `damageEnd` 和 `damageAfter`
+- 非默认的 `cancel(false, player)` 不推进 `_triggered`，若在内容阶段调用，仍可能从状态 2 继续走 End/After；详见 [落绯实现复盘](../落绯实现_事件牌区与扩展打包.md#24-取消伤害到底会不会走-endafter)
 
 ### 1.4 checkDamage 钩子系统
 
@@ -190,7 +191,7 @@ content() {
 loseHpBefore → loseHpBegin → [content: changeHp(-num)] → loseHpEnd → loseHpAfter
 ```
 
-被转为 loseHp 的伤害：damage 走 damageCancelled→damageEnd→damageAfter，同时 loseHp 独立走自己的完整事件链。
+使用默认 `trigger.cancel()` 将伤害转为 loseHp 时：damage 走 `damageCancelled` 后结束，不再进入 `damageEnd/damageAfter`；loseHp 独立走自己的完整事件链。
 
 ---
 
@@ -322,7 +323,7 @@ mySkill: {
 ### 7.3 未决问题
 
 1. **damageBefore vs damageBegin4**：大部分伤害防止用 damageBegin4（目标）或 damageBegin2（来源），damageBefore 主要用于转换效果。根据需求选择。
-2. **cancel后 damageAfter 仍触发**：需通过 `event._cancelled` 或 `change_history` 区分真实发生与取消。
+2. **非默认取消路径的后置节点**：默认 `trigger.cancel()` 不再触发 `damageEnd/damageAfter`；若其他代码使用 `cancel(false, player)` 等变体，后置技能仍应结合 `event._cancelled`、实际数值与业务状态过滤。
 
 ---
 

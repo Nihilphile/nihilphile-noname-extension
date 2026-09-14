@@ -5,5 +5,7 @@
         nihil_binglangwei: ["bing", "lang", "wei"],
         nihil_moxuluo: ["mo", "xu", "luo"],
         nihil_xianxueyinhua: ["yin", "hua"],
+        nihil_huojing: ["huo", "jing"],
+        nihil_luofei: ["luo", "fei"],
     };
 })();
