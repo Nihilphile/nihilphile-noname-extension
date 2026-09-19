@@ -82,8 +82,6 @@
             },
             async content(event, trigger, player) {
                 player.logSkill("nihil_kaiwu");
-                game.log(player, "发动了", "#g凯武", "，摸了",
-                    get.cnNumber(player.hujia), "张牌");
                 await player.draw(player.hujia);
             },
         },
@@ -161,7 +159,7 @@
             async content(event, trigger, player) {
                 await player.changeHujia(-2);
                 player.logSkill("nihil_jiazhuang");
-                game.log(player, "消耗了2点护甲，回复了1点体力");
+                game.log("#g甲装", "：", player, "消耗2点护甲");
                 var evt = player.recover(1);
                 evt.nihil_jiazhuang = true;
                 await evt;

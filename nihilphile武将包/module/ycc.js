@@ -12,6 +12,12 @@ function yccCardKeepValue(card, player) {
     return get.useful(card, player) + get.value(card, player) / 3;
 }
 
+function semanticLog() {
+    if (typeof game !== "undefined" && game && typeof game.log === "function") {
+        game.log.apply(game, arguments);
+    }
+}
+
 function yccCountWuzhong(player) {
     return player.countCards("h", card => get.name(card, player) === "wuzhong");
 }
@@ -149,12 +155,13 @@ function yccHuangmingTargetScore(player, originalTarget, target, canUseShaOn) {
     if (get.attitude(player, originalTarget) >= 0) return -Infinity;
 
     const hand = target.countCards("h");
+    const discardable = yccHuangmingDiscardableCount(player, target);
     const isEnemy = get.attitude(player, target) < 0;
     const canSha = canUseShaOn(target);
 
     if (isEnemy) {
         const internalSha = canSha ? Math.max(0, get.effect(originalTarget, YCC_SHA_CARD, target, player)) : 0;
-        return 100 + hand * 10 + internalSha * 2;
+        return 100 + discardable * 10 + internalSha * 2;
     }
 
     const isFriend = get.attitude(player, target) > 0;
@@ -167,12 +174,21 @@ function yccHuangmingTargetScore(player, originalTarget, target, canUseShaOn) {
     return -Infinity;
 }
 
+function yccHuangmingDiscardableCount(owner, target) {
+    if (!target) return 0;
+    if (typeof target.countDiscardableCards === "function") {
+        return target.countDiscardableCards(owner, "he");
+    }
+    return target.countCards("he");
+}
+
 function yccHuangmingControlChoice(chosen, owner, originalTarget) {
     const shaEffect = get.effect(originalTarget, YCC_SHA_CARD, chosen, chosen);
     const giftValue = owner.countCards("h") > 0 ? 2.5 : 0;
     const shaCost = 1.5;
     const optionSha = shaEffect + giftValue - shaCost;
-    const optionDiscard = chosen.countCards("h") > 0 ? -3 - Math.min(2, chosen.countCards("h") / 2) : 0;
+    const discardable = yccHuangmingDiscardableCount(owner, chosen);
+    const optionDiscard = discardable > 0 ? -3 - Math.min(2, discardable / 2) : 0;
     return optionSha >= optionDiscard ? 0 : 1;
 }
 
@@ -283,8 +299,8 @@ ycc_huangming: {
                 return lib.filter.targetEnabled(shaCard, chosen, originalTarget) !== false;
             };
 
-            // Helper: check if chosen has hand cards
-            const hasHandCards = (chosen) => chosen.countCards("h") > 0;
+            // 皇命只能弃置对方手牌区或装备区中可被御承宸弃置的牌。
+            const hasDiscardableCard = (chosen) => yccHuangmingDiscardableCount(player, chosen) > 0;
 
             // Helper: execute option 1 - chosen uses sha on original target, then player gives a card to chosen
             async function executeOption1(chosen) {
@@ -321,9 +337,9 @@ ycc_huangming: {
                 }
             }
 
-            // Helper: execute option 2 - Yuchenchen discards one card from chosen
+            // Helper: execute option 2 - Yuchenchen discards one hand/equipment card from chosen
             async function executeOption2(chosen) {
-                await player.discardPlayerCard(chosen, "h", true);
+                await player.discardPlayerCard(chosen, "he", true);
             }
 
             // Choose another character (not Yuchenchen, not the original target)
@@ -334,7 +350,7 @@ ycc_huangming: {
                     (card, p, target) => {
                         if (target === p) return false;
                         if (target === originalTarget) return false;
-                        return canUseShaOn(target) || hasHandCards(target);
+                        return canUseShaOn(target) || hasDiscardableCard(target);
                     }
                 )
                 .set("ai", target => {
@@ -350,7 +366,7 @@ ycc_huangming: {
             player.line(chosen, "green");
 
             const opt1 = canUseShaOn(chosen);
-            const opt2 = hasHandCards(chosen);
+            const opt2 = hasDiscardableCard(chosen);
 
             if (opt1 && opt2) {
                 // Both options available: chosen character uses chooseControl
@@ -358,7 +374,7 @@ ycc_huangming: {
                     .chooseControl()
                     .set("choiceList", [
                         "对" + get.translation(originalTarget) + "使用一张【杀】（无视距离），然后" + get.translation(player) + "交给你一张手牌",
-                        "令" + get.translation(player) + "弃置你一张手牌"
+                        "令" + get.translation(player) + "弃置你的一张牌"
                     ])
                     .set("prompt", "皇命：请选择一项")
                     .set("ai", () => {
@@ -368,15 +384,19 @@ ycc_huangming: {
                     .forResult();
 
                 if (controlResult.index === 0) {
+                    semanticLog("#g皇命", "：", chosen, "选择对", originalTarget, "出杀");
                     await executeOption1(chosen);
                 } else if (controlResult.index === 1) {
+                    semanticLog("#g皇命", "：", chosen, "选择由", player, "弃置其一张牌");
                     await executeOption2(chosen);
                 } else {
                     return event.finish();
                 }
             } else if (opt1) {
+                semanticLog("#g皇命", "：", chosen, "执行对", originalTarget, "出杀的分支");
                 await executeOption1(chosen);
             } else if (opt2) {
+                semanticLog("#g皇命", "：", chosen, "执行由", player, "弃置其一张牌的分支");
                 await executeOption2(chosen);
             }
         },
@@ -474,6 +494,7 @@ ycc_huangming: {
             player.removeSkill("ycc_huangming");
             player.addSkill("ycc_handlimit");
             player.addSkill("ycc_longji");
+            semanticLog("#g亲征", "：", player, "失去【皇命】，获得【龙殛】，手牌上限+1");
             delete player.storage.ycc_qinzheng_no_support;
             delete player.storage.ycc_qinzheng_watch_round;
         },
@@ -552,6 +573,7 @@ ycc_huangming: {
             // Place card in target's own expansion
             const next = target.addToExpansion(result.cards, player, "give");
             next.gaintag = ["ycc_longji"];
+            semanticLog("#g龙殛", "：", player, "扣置了", target, "的一张手牌至回合结束");
 
             // Ensure the return sub-skill is active on source (Yuchenchen)
             if (!player.hasSkill("ycc_longji_return", null, null, false)) {
@@ -609,7 +631,7 @@ var translates = {
 ycc_yuchengchen: "御承宸",
     ycc_yuchengchen_prefix: "ycc",
     ycc_huangming: "皇命",
-    ycc_huangming_info: "当你使用【杀】结算完成后，你可以令一名其他角色选择一项：1.对该目标使用一张【杀】（无视距离限制），然后你交给其一张手牌（没有则不交）；2.你弃置其一张手牌。",
+    ycc_huangming_info: "当你使用【杀】结算完成后，你可以令一名其他角色选择一项：1.对该目标使用一张【杀】（无视距离限制），然后你交给其一张手牌（没有则不交）；2.你弃置其一张牌。",
     ycc_yuce: "御策",
     ycc_yuce_info: "出牌阶段结束时，若你手牌数为全场最高，你可以视为使用一张【杀】；若你手牌数为全场最低，你可以摸两张牌。",
     ycc_qinzheng: "亲征",

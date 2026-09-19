@@ -1,7 +1,21 @@
 game.import("extension", function (lib, game, ui, get, ai, _status) {
     const EXT_DISPLAY_NAME = "Nihilphile";
     const EXT_NAME = (_status && _status.extension) || EXT_DISPLAY_NAME;
-    const MODULE_FILES = ["ai_cards", "tia", "ycc", "guanyu", "binglangwei", "moxuluo", "yinhua", "xianxueyinhua"];
+    const MODULE_FILES = [
+        "ai_cards",
+        "tia",
+        "ycc",
+        "guanyu",
+        "binglangwei",
+        "moxuluo",
+        "yinhua",
+        "xianxueyinhua",
+        "huojing_rewrite",
+        "luofei",
+        "mikasa",
+        "wujizi",
+        "mabaoguo",
+    ];
     const CHAR_FILES = ["pinyin", "intro", "index"];
 
     return {
@@ -35,7 +49,10 @@ game.import("extension", function (lib, game, ui, get, ai, _status) {
             });
             // 旧版本曾临时禁用鲜血仪葬版；加载新版时解除该运行时禁用。
             while (lib.config.forbidai.includes("nihil_xianxueyinhua")) {
-                lib.config.forbidai.splice(lib.config.forbidai.indexOf("nihil_xianxueyinhua"), 1);
+                lib.config.forbidai.splice(
+                    lib.config.forbidai.indexOf("nihil_xianxueyinhua"),
+                    1,
+                );
             }
 
             if (lib.init.jsSync) {
@@ -59,9 +76,13 @@ game.import("extension", function (lib, game, ui, get, ai, _status) {
                                 lib.init.js(base + "character", "index");
                                 return;
                             }
-                            lib.init.js(base + "module", MODULE_FILES[idx], function () {
-                                loadModule(idx + 1);
-                            });
+                            lib.init.js(
+                                base + "module",
+                                MODULE_FILES[idx],
+                                function () {
+                                    loadModule(idx + 1);
+                                },
+                            );
                         }
                         loadModule(0);
                     });

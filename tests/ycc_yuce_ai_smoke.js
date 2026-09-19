@@ -10,8 +10,10 @@ class MockPlayer {
         options = options || {};
         this.id = id;
         this.handCount = options.handCount || 0;
+        this.equipCount = options.equipCount || 0;
         this.attitudes = options.attitudes || {};
         this.legalTargets = new Set(options.legalTargets || []);
+        this.chooseTargetResult = options.chooseTargetResult || null;
         this.chooseBoolCalls = 0;
         this.chooseUseTargetCalls = 0;
         this.loggedSkills = [];
@@ -20,7 +22,15 @@ class MockPlayer {
     }
 
     countCards(zone) {
-        return zone.includes("h") ? this.handCount : 0;
+        let count = 0;
+        if (zone.includes("h")) count += this.handCount;
+        if (zone.includes("e")) count += this.equipCount;
+        return count;
+    }
+
+    countDiscardableCards(player, zone) {
+        this.lastDiscardableQuery = { player, zone };
+        return this.countCards(zone);
     }
 
     canUse(card, target) {
@@ -30,6 +40,39 @@ class MockPlayer {
     hasUseTarget(card) {
         return game.players.some(target => target !== this && this.canUse(card, target));
     }
+
+    hasSha() {
+        return false;
+    }
+
+    isIn() {
+        return true;
+    }
+
+    chooseTarget(...args) {
+        const filter = args.find(value => typeof value === "function");
+        const target = this.chooseTargetResult;
+        const config = {};
+        const choice = {
+            set(key, value) {
+                config[key] = value;
+                return choice;
+            },
+            async forResult() {
+                return target && (!filter || filter(null, this, target))
+                    ? { bool: true, targets: [target] }
+                    : { bool: false, targets: [] };
+            },
+        };
+        choice.forResult = choice.forResult.bind(this);
+        return choice;
+    }
+
+    async discardPlayerCard(target, zone, forced) {
+        this.lastDiscard = { target, zone, forced };
+    }
+
+    line() {}
 
     hasValueTarget() {
         throw new Error("御策入口不应再调用 hasValueTarget");
@@ -72,6 +115,10 @@ class MockPlayer {
 
 const game = {
     players: [],
+    semanticLogs: [],
+    log(...parts) {
+        this.semanticLogs.push(parts);
+    },
     hasPlayer(callback) {
         return this.players.some(callback);
     },
@@ -98,7 +145,16 @@ const context = {
     window: {},
     game,
     get,
-    lib: {},
+    lib: {
+        filter: {
+            cardEnabled() {
+                return true;
+            },
+            targetEnabled() {
+                return true;
+            },
+        },
+    },
     ui: {},
     _status: { currentPhase: null },
     console,
@@ -122,6 +178,51 @@ async function runMaxHandCase(player, others) {
 }
 
 async function main() {
+    const huangming = context.window.nihilModules.ycc.skill.ycc_huangming;
+    const qinzheng = context.window.nihilModules.ycc.skill.ycc_qinzheng;
+    const qinzhengPlayer = {
+        storage: {
+            ycc_qinzheng_no_support: 3,
+            ycc_qinzheng_watch_round: 2,
+        },
+        skills: new Set(["ycc_huangming"]),
+        awakenSkill() {},
+        async loseMaxHp() {},
+        removeSkill(name) {
+            this.skills.delete(name);
+        },
+        addSkill(name) {
+            this.skills.add(name);
+        },
+    };
+    await qinzheng.content({ name: "ycc_qinzheng" }, {}, qinzhengPlayer);
+    assert.strictEqual(qinzhengPlayer.skills.has("ycc_huangming"), false);
+    assert.strictEqual(qinzhengPlayer.skills.has("ycc_longji"), true);
+    const qinzhengLog = game.semanticLogs
+        .flat()
+        .filter(part => typeof part === "string")
+        .join("|");
+    assert.ok(qinzhengLog.includes("失去【皇命】，获得【龙殛】，手牌上限+1"), "亲征技能替换应写入语义战报");
+
+    // 皇命第二分支可弃置装备区的牌，并统一使用he范围。
+    {
+        const originalTarget = new MockPlayer("original");
+        const equipmentOnly = new MockPlayer("equipment-only", { equipCount: 1 });
+        const player = new MockPlayer("ycc", { chooseTargetResult: equipmentOnly });
+        await huangming.content(
+            { finish() {} },
+            { card: { name: "sha" }, targets: [originalTarget] },
+            player,
+        );
+        assert.deepStrictEqual(player.lastDiscard, {
+            target: equipmentOnly,
+            zone: "he",
+            forced: true,
+        });
+        assert.strictEqual(equipmentOnly.lastDiscardableQuery.zone, "he");
+        assert.ok(!context.window.nihilModules.ycc.translate.ycc_huangming_info.includes("弃置其一张手牌"));
+    }
+
     // 有合法敌方：即使通用牌效为负，AI 仍发动，并保证敌方目标优先于队友。
     {
         const enemy = new MockPlayer("enemy", { handCount: 2 });

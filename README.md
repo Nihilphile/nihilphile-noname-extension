@@ -1,37 +1,37 @@
-# Nihilphile Custom Characters
+# Nihilphile 武将包
 
-This directory is the workspace for custom noname characters and extensions made
-under the Nihilphile umbrella.
+无名杀自定义武将扩展，包含鲜血仪葬·殷华、赤色残花·殷华、霍旌、落绯、御承宸、三笠、武极子、马保国等武将。
 
-Each character or extension should have its own subdirectory. The subdirectory is
-a project workspace: it stores briefs, manifests, test notes, and orchestration
-metadata. Production extension source may still live in the noname extension
-tree when the game requires that layout.
+## 下载与安装
 
-## Projects
+1. 在本仓库的 **Releases** 页面下载 `Nihilphile-v1.0.0.zip`。
+2. 在无名杀的扩展管理中导入该 ZIP，启用 **Nihilphile**，然后重启游戏。
+3. 在武将包设置中启用对应武将包。
 
-| Project         | Directory        | Purpose                                                           |
-| --------------- | ---------------- | ----------------------------------------------------------------- |
-| 御承宸             | `ycc/`           | Online-capable custom general extension and tests                 |
-| Nihilphile Pack | (extension tree) | Distributable character extension package; 御承宸 is first character |
+手动安装：将本仓库 `nihilphile武将包/` 目录中的 `extension.js`、`info.json`、`character/`、`module/`、`image/`、`main/` 放入游戏的 `extension/Nihilphile/` 目录，然后启用扩展并重启。下载 GitHub 的源码 ZIP 时，需要先解压，不能将其外层仓库目录当作扩展包直接导入。
 
-## Extension Source Locations
+## 兼容性
 
-| Item                                   | Path                                               |
-| -------------------------------------- | -------------------------------------------------- |
-| Nihilphile extension source            | `noname/apps/core/extension/nihilphile/`           |
-| Nihilphile extension runtime           | `game/noname/resources/app/extension/nihilphile/`  |
-| yuchengchen extension source (legacy)  | `noname/apps/core/extension/yuchengchen/`          |
-| yuchengchen extension runtime (legacy) | `game/noname/resources/app/extension/yuchengchen/` |
+当前开发与验证基于无名杀子琪懒人包 v1.11.3。其他客户端版本的兼容性尚未验证。扩展声明支持联机，但本次发布没有进行完整联机实机验收。
 
-## Conventions
+## 本次发布
 
-- Keep game runtime source in the location required by noname.
-- Keep project coordination files here.
-- Use CC_Crew group `ycc` for 御承宸 worker dispatch.
-- Do not mix raw worker result stores into this directory. Link to result paths
-  from manifests instead.
+- 包含当前武将源码与立绘资源。
+- 修复鲜血仪葬·殷华丹恩 AI：不再没收自己的血缠回血；优先使用敌方血缠；只有自己不超过 1 血、队友至少 3 血时才考虑使用队友血缠。
+- 丹恩没有实际收益时，不再为了虚构的回血收益压住出杀。
+- 赤色残花版殷华的 AI 尚未完成，暂时排除 AI 自动选将。
 
-## Deprecated
+## 验证状态
 
-- `nihilphile武将包-lazy/` — **已弃用**（2026-08-13），请使用 `nihilphile武将包/`。详见 [DEPRECATED.md](nihilphile武将包-lazy/DEPRECATED.md)。
+发布前，开发工作区的 16 个测试脚本通过；公开包的 20 个 JavaScript 文件通过语法检查，打包文件逐项校验。上述自动验证不代表完整实机对局验收。
+
+## 源码结构
+
+正式扩展位于 `nihilphile武将包/`。旧的 `nihilphile武将包-lazy/` 已停用，请勿混装。以下路径均相对此目录。
+
+- `extension.js`：扩展入口及模块加载。
+- `module/`：各武将技能与 AI。
+- `character/`：武将注册、介绍与拼音。
+- `image/character/`：武将立绘。
+
+遇到问题可在本仓库 Issues 提交客户端版本、涉及武将、操作步骤和错误日志。
