@@ -1,0 +1,135 @@
+name: Release extension
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag, for example v1.4.0 or v1.4.0-rc.1"
+        required: true
+        type: string
+      prerelease:
+        description: "Publish as a prerelease"
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  test-package-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Resolve release metadata
+        id: release
+        shell: bash
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          INPUT_PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          set -euo pipefail
+          tag="${INPUT_TAG:-${GITHUB_REF_NAME}}"
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid release tag: $tag" >&2
+            exit 1
+          fi
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            prerelease="${INPUT_PRERELEASE:-true}"
+          elif [[ "$tag" == *-* ]]; then
+            prerelease="true"
+          else
+            prerelease="false"
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+          echo "archive=Nihilphile-$tag.zip" >> "$GITHUB_OUTPUT"
+
+      - name: Run JavaScript tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          if compgen -G 'tests/*.js' > /dev/null; then
+            for test_file in tests/*.js; do
+              echo "RUN $test_file"
+              node "$test_file"
+            done
+          else
+            echo "No JavaScript tests are present in this revision"
+          fi
+
+      - name: Check extension JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' source_file; do
+            node --check "$source_file"
+          done < <(find 'nihilphile武将包' -type f -name '*.js' \
+            ! -name 'ycc_helpers.js' ! -name 'ycc_helpers_only.js' -print0)
+
+      - name: Build and verify extension archive
+        shell: bash
+        env:
+          ARCHIVE: ${{ steps.release.outputs.archive }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          export SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
+          python scripts/package_extension.py \
+            --source 'nihilphile武将包' \
+            --output "dist/$ARCHIVE"
+          (cd dist && sha256sum "$ARCHIVE" > SHA256SUMS.txt)
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.release.outputs.tag }}
+          path: |
+            dist/${{ steps.release.outputs.archive }}
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+
+      - name: Create or update GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+          ARCHIVE: ${{ steps.release.outputs.archive }}
+          PRERELEASE: ${{ steps.release.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "dist/$ARCHIVE" dist/SHA256SUMS.txt --clobber
+          else
+            flags=()
+            if [[ "$PRERELEASE" == "true" ]]; then
+              flags+=(--prerelease)
+            fi
+            gh release create "$TAG" \
+              "dist/$ARCHIVE" dist/SHA256SUMS.txt \
+              --target "$GITHUB_SHA" \
+              --title "Nihilphile $TAG" \
+              --generate-notes \
+              "${flags[@]}"
+          fi
