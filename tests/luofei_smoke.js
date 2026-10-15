@@ -85,7 +85,10 @@ const game = {
     players: [],
     topCards: [],
     discarded: [],
-    log() {},
+    semanticLogs: [],
+    log(...parts) {
+        this.semanticLogs.push(parts);
+    },
     async cardsGotoOrdering(cards) {
         cards.forEach(card => {
             card.position = "o";
@@ -198,19 +201,12 @@ async function testMetadata() {
     assert.strictEqual(moduleDef.translate.nihil_dianchao, "殷潮");
 }
 
-async function testStartingBloodAndStateMark() {
+async function testNoStartingBlood() {
     const player = makePlayer("luofei", { [BLOOD]: 0 });
-    assert.strictEqual(
-        skills.nihil_lianxi_start.filter({ name: "phase" }),
-        true,
-    );
-    await skills.nihil_lianxi_start.content({}, {}, player);
-    assert.strictEqual(player.countMark(BLOOD), 2, "游戏开始时应获得2血");
-    assert.deepStrictEqual(
-        Array.from(player.shownSkillMarks),
-        [STATE_XI],
-        "2血时发动流生将剩1血，应显示“息”",
-    );
+    assert.strictEqual(skills.nihil_lianxi_start, undefined, "敛息不应再注册开局获得2血的子技能");
+    assert.strictEqual(skills.nihil_lianxi.group.includes("nihil_lianxi_start"), false);
+    assert.strictEqual(player.countMark(BLOOD), 0, "落绯开局应从0血开始");
+    assert.strictEqual(moduleDef.translate.nihil_lianxi_info.includes("游戏开始时"), false);
 }
 
 async function testDamageConversion() {
@@ -594,13 +590,19 @@ async function testLiusheng() {
 
 async function main() {
     await testMetadata();
-    await testStartingBloodAndStateMark();
+    await testNoStartingBlood();
     await testDamageConversion();
     await testBloodCounting();
     await testYinchaoEndPhaseCardRoutes();
     await testYinchaoAiSpendIntegration();
     await testAiIsolationAndVulnerabilityMemory();
     await testLiusheng();
+    const semanticText = game.semanticLogs
+        .flat()
+        .filter(part => typeof part === "string")
+        .join("|");
+    assert.ok(semanticText.includes("点伤害改为等量体力流失"), "敛息转换应写入语义战报");
+    assert.ok(semanticText.includes("移去了"), "血标记消耗应写入语义战报");
     console.log("luofei smoke tests passed");
 }
 

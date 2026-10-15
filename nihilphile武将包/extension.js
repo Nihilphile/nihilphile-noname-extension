@@ -12,6 +12,14 @@ game.import("extension", function (lib, game, ui, get, ai, _status) {
         "xianxueyinhua",
         "huojing_rewrite",
         "luofei",
+        "jie_luofei_ai",
+        "jie_luofei",
+        "mikasa",
+        "wujizi",
+        "mabaoguo",
+        "jianhua",
+        "shencangfeng",
+        "wuyou",
     ];
     const CHAR_FILES = ["pinyin", "intro", "index"];
 
@@ -37,20 +45,19 @@ game.import("extension", function (lib, game, ui, get, ai, _status) {
             lib.translate.yao_short = "妖";
             lib.translate.yao_config = "妖势力";
 
-            // 赤色残花版的人机逻辑尚未完成，暂时排除 AI 选将。
+            // 殷华保留临时 AI 禁选；forbidai 也会影响对决模式的玩家选将池。
             if (!lib.config.forbidai) lib.config.forbidai = [];
             ["nihil_yinhua"].forEach(function (id) {
                 if (!lib.config.forbidai.includes(id)) {
                     lib.config.forbidai.push(id);
                 }
             });
-            // 旧版本曾临时禁用鲜血仪葬版；加载新版时解除该运行时禁用。
-            while (lib.config.forbidai.includes("nihil_xianxueyinhua")) {
-                lib.config.forbidai.splice(
-                    lib.config.forbidai.indexOf("nihil_xianxueyinhua"),
-                    1,
-                );
-            }
+            // 清理旧版本给神落绯、鲜血仪葬版、剑华、沈藏锋和无忧添加的临时禁选。
+            ["nihil_jie_luofei", "nihil_xianxueyinhua", "nihil_jianhua", "nihil_shencangfeng", "nihil_wuyou"].forEach(function (id) {
+                while (lib.config.forbidai.includes(id)) {
+                    lib.config.forbidai.splice(lib.config.forbidai.indexOf(id), 1);
+                }
+            });
 
             if (lib.init.jsSync) {
                 // Load character helper files (pinyin, intro)

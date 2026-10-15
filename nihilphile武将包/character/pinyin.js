@@ -7,5 +7,12 @@
         nihil_xianxueyinhua: ["yin", "hua"],
         nihil_huojing: ["huo", "jing"],
         nihil_luofei: ["luo", "fei"],
+        nihil_jie_luofei: ["luo", "fei"],
+        nihil_mikasa: ["san", "li"],
+        nihil_wujizi: ["wu", "ji", "zi"],
+        nihil_mabaoguo: ["ma", "bao", "guo"],
+        nihil_jianhua: ["jian", "hua"],
+        nihil_shencangfeng: ["shen", "cang", "feng"],
+        nihil_wuyou: ["wu", "you"],
     };
 })();

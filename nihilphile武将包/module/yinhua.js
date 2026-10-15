@@ -6,6 +6,12 @@
         return "extension/" + EXT_NAME + "/image/character/" + id + "." + (ext || "png");
     }
 
+    function semanticLog() {
+        if (typeof game !== "undefined" && game && typeof game.log === "function") {
+            game.log.apply(game, arguments);
+        }
+    }
+
     // ============================================================
     //  决意之殇 殷华 — 残言·残恨·残心
     // ============================================================
@@ -113,7 +119,7 @@
                 var N = targets ? targets.length : 0;
                 if (N <= 0) return;
                 player.logSkill("nihil_canyan");
-                game.log(player, "受到了残言的反噬（伤害" + N + "）");
+                semanticLog("#g残言", "：", player, "须对自己结算一张伤害为", N, "的【杀】");
                 // 自指杀无视防具（藤甲/仁王盾），但可正常出闪
                 var card = { name: "sha", isCard: true };
                 player.addTempSkill("qinggang2");
@@ -161,7 +167,7 @@
                 });
                 if (shas.length > 0) {
                     var cards = shas.slice(0, X);
-                    game.log(player, "从弃牌堆获得了", get.cnNumber(cards.length), "张杀");
+                    semanticLog("#g残恨", "：从弃牌堆选取", get.cnNumber(cards.length), "张【杀】");
                     await player.gain(cards, "gain2");
                 }
             },

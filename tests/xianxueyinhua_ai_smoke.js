@@ -22,6 +22,10 @@ class MockPlayer {
         this.phaseUsing = options.phaseUsing !== false;
         this.history = options.history || { useCard: [] };
         this.lastButtonTargetConfig = null;
+        this.buttonTargetResult = null;
+        this.recovered = 0;
+        this.drawn = 0;
+        this.loggedSkills = [];
     }
 
     isIn() {
@@ -34,6 +38,14 @@ class MockPlayer {
 
     hasSkill(name) {
         return this.skills.has(name);
+    }
+
+    addSkill(name) {
+        this.skills.add(name);
+    }
+
+    removeSkill(name) {
+        this.skills.delete(name);
     }
 
     hasSkillTag(tag) {
@@ -80,22 +92,42 @@ class MockPlayer {
         return typeof filter === "function" ? events.some(filter) : events.length > 0;
     }
 
+    logSkill(name, target) {
+        this.loggedSkills.push({ name, target });
+    }
+
+    async recover(num) {
+        num = num == null ? 1 : num;
+        this.recovered += num;
+        this.hp = Math.min(this.maxHp, this.hp + num);
+    }
+
+    async draw(num) {
+        this.drawn += num == null ? 1 : num;
+    }
+
     chooseButtonTarget(config) {
         this.lastButtonTargetConfig = config;
         const choice = {
-            set() {
+            set(key, value) {
+                config[key] = value;
                 return choice;
             },
             async forResult() {
-                return { bool: false };
+                return this.buttonTargetResult || { bool: false };
             },
         };
+        choice.forResult = choice.forResult.bind(this);
         return choice;
     }
 }
 
 const game = {
     players: [],
+    semanticLogs: [],
+    log(...parts) {
+        this.semanticLogs.push(parts);
+    },
     hasPlayer(callback) {
         return this.players.some(callback);
     },
@@ -123,6 +155,9 @@ const get = {
     },
     damageEffect() {
         return -1;
+    },
+    cnNumber(num) {
+        return String(num);
     },
 };
 
@@ -167,6 +202,23 @@ async function main() {
     const ally = new MockPlayer("ally", { hp: 2, attitudes: { yinhua: 5 } });
     const enemy = new MockPlayer("enemy", { hp: 2, attitudes: { yinhua: -5 } });
     game.players = [yinhua, ally, enemy];
+
+    // 血缠的防伤与移除属于自定义状态变化，必须形成可供 CLI 读取的语义战报。
+    let bloodBindCancelled = false;
+    const bloodBindTarget = new MockPlayer("blood-bind", { skills: ["nihil_xuechan"] });
+    await skills.nihil_xuechan.content({}, {
+        num: 2,
+        cancel() {
+            bloodBindCancelled = true;
+        },
+    }, bloodBindTarget);
+    assert.strictEqual(bloodBindCancelled, true);
+    assert.strictEqual(bloodBindTarget.hasSkill("nihil_xuechan"), false);
+    const bloodBindLog = game.semanticLogs
+        .flat()
+        .filter(part => typeof part === "string")
+        .join("|");
+    assert.ok(bloodBindLog.includes("点伤害并移去状态"), "血缠防伤应写入语义战报");
 
     // 其他角色仍会按敌我关系判断是否对殷华发动赤献。
     const chixian = skills.nihil_chixian_global.ai;
@@ -296,13 +348,24 @@ async function main() {
     yinhua.history.useCard = [];
     yinhua.attitudes["critical-ally"] = 5;
     yinhua.attitudes.enemy = -5;
+    enemy.skills.add("nihil_xuechan");
     currentPlayer = yinhua;
     game.players = [yinhua, criticalAlly, enemy];
     await danen.content({}, {}, yinhua);
     const danenConfig = yinhua.lastButtonTargetConfig;
     assert.ok(danenConfig && typeof danenConfig.ai1 === "function" && typeof danenConfig.ai2 === "function");
+    assert.deepStrictEqual(Array.from(danenConfig.recover), [yinhua, enemy],
+        "丹恩回复分支应列出可被移去血缠的角色");
     assert.ok(danenConfig.ai1({ link: "gain" }) > danenConfig.ai1({ link: "recover" }));
     assert.ok(danenConfig.ai2(criticalAlly) > danenConfig.ai2(yinhua));
+
+    yinhua.buttonTargetResult = { bool: true, targets: [enemy], links: ["recover"] };
+    await danen.content({}, {}, yinhua);
+    assert.strictEqual(enemy.hasSkill("nihil_xuechan"), false, "丹恩自疗前应移去所选角色的血缠");
+    assert.strictEqual(yinhua.hp, 3, "丹恩第二项应只回复鲜血殷华");
+    assert.strictEqual(yinhua.recovered, 1);
+    assert.strictEqual(yinhua.drawn, 1, "摸牌数应按移去血缠后的场上数量计算");
+    yinhua.buttonTargetResult = null;
 
     // 两个记录子技能必须挂入殷殇，并能把首杀路线及实际体力流失写回useCard事件。
     assert.ok(yinshang.group.includes("nihil_yinshang_ai_use"));
@@ -416,6 +479,68 @@ async function main() {
     await vulnerableClear.content({}, gainEvent, yinhua);
     assert.strictEqual(plainEnemy._nihilYinhuaNoShanVulnerable, undefined,
         "目标获得新手牌后必须清除未出闪脆弱标记");
+
+    // 用真正的ai1/ai2选项接线验证保缠规则，再执行被AI选中的丹恩分支。
+    for (const scenario of [
+        { name: "无外部来源保留自身血缠", hp: 2, expected: null },
+        { name: "残血向健康队友借缠", hp: 1, allyHp: 3, expected: "donor-ally" },
+        { name: "敌方来源优先于健康队友", hp: 1, allyHp: 3, enemyBlood: true, expected: "donor-enemy" },
+        { name: "两血不拆健康队友的缠", hp: 2, allyHp: 3, expected: null },
+        { name: "残血也不拆低血量队友的缠", hp: 1, allyHp: 2, expected: null },
+    ]) {
+        const chooser = new MockPlayer("donor-self", {
+            hp: scenario.hp,
+            skills: ["nihil_chixian", "nihil_yinshang", "nihil_xuechan"],
+            attitudes: { "donor-enemy": -5, "donor-ally": 5 },
+        });
+        const opponent = new MockPlayer("donor-enemy", {
+            skills: scenario.enemyBlood ? ["nihil_xuechan"] : [],
+        });
+        const friend = new MockPlayer("donor-ally", {
+            hp: scenario.allyHp,
+            skills: ["nihil_xuechan"],
+        });
+        game.players = [chooser, opponent];
+        if (scenario.allyHp != null) game.players.push(friend);
+        currentPlayer = chooser;
+        context._status.event = { name: "phaseDiscard", player: chooser };
+        await danen.content({}, {}, chooser);
+        const config = chooser.lastButtonTargetConfig;
+        assert.strictEqual(config.ai1({ link: "gain" }), 0);
+        if (scenario.expected) {
+            assert.ok(config.ai1({ link: "recover" }) > 0, scenario.name);
+            const donor = config.recover.find(target => config.ai2(target) > 0);
+            assert.strictEqual(donor.id, scenario.expected, scenario.name);
+            chooser.buttonTargetResult = { bool: true, targets: [donor], links: ["recover"] };
+            await danen.content({}, {}, chooser);
+            assert.strictEqual(donor.hasSkill("nihil_xuechan"), false);
+            assert.strictEqual(chooser.hp, scenario.hp + 1);
+            assert.strictEqual(chooser.drawn, game.countPlayer(target => target.hasSkill("nihil_xuechan")));
+        } else {
+            assert.strictEqual(config.ai1({ link: "recover" }), 0, scenario.name);
+            assert.strictEqual(chooser.hp, scenario.hp);
+            assert.strictEqual(chooser.drawn, 0);
+        }
+        assert.strictEqual(chooser.hasSkill("nihil_xuechan"), true, scenario.name);
+        assert.strictEqual(chixian.order(null, chooser), 0, "保留自身血缠后不再进入赤献拆补循环");
+    }
+
+    // 路线缓存必须消费当前丹恩实际计划，不能凭低血量虚构回血收益。
+    for (const hp of [1, 2]) {
+        const chooser = new MockPlayer("route-self", {
+            hp, skills: ["nihil_yinshang", "nihil_xuechan"],
+            handCards: [sha1, sha2, sha3], cardUsable: 3,
+            attitudes: { "route-enemy": -5 },
+        });
+        const opponent = new MockPlayer("route-enemy", {
+            hp: 4, maxHp: 4, handCards: [{ name: "a" }, { name: "b" }, { name: "c" }],
+        });
+        game.players = [chooser, opponent];
+        context._status.event = { name: "chooseToUse", player: chooser };
+        yinshang.onChooseToUse(context._status.event);
+        assert.strictEqual(context._status.event._nihilYinhuaAttackDecision.action, "ATTACK");
+        assert.ok(yinshang.mod.aiOrder(chooser, sha1, 3.2) > 0);
+    }
 
     console.log("xianxueyinhua AI smoke: all assertions passed");
 }

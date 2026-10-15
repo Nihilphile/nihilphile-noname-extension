@@ -1,33 +1,21 @@
-# Nihilphile Custom Characters
+# Nihilphile 武将包
 
-This directory is the workspace for custom noname characters and extensions made
-under the Nihilphile umbrella.
+当前主包源码位于 `nihilphile武将包/`。该目录包含扩展入口、武将模块、角色资源和包信息，可通过 `scripts/package_extension.py` 打包为可导入的 ZIP。
 
-Each character or extension should have its own subdirectory. The subdirectory is
-a project workspace: it stores briefs, manifests, test notes, and orchestration
-metadata. Production extension source may still live in the noname extension
-tree when the game requires that layout.
+| 目录 | 内容 |
+| --- | --- |
+| `nihilphile武将包/` | 当前主包源码与资源 |
+| `tests/` | 机制、AI、行为测试及夹具 |
+| `test-extensions/` | 机制验证用测试扩展 |
+| `scripts/` | 打包工具 |
+| `docs/`、`doc/` | 规则、设计和工程说明 |
+| `luofei-benchmark/design/challenge-winner.cjs` | 落绯回归测试依赖的固定参考实现 |
+| `tia/`、`ycc/` | 保留的历史项目资料 |
 
-## Projects
+2026-10-15 的主包基线将此前混合开发的当前状态收为一次提交。范围、验证结果和已知限制见 [基线记录](docs/git-baseline-20261015.md)。基线表示可追溯快照，不代表所有武将都已完成全面验收。
 
-| Project         | Directory        | Purpose                                                           |
-| --------------- | ---------------- | ----------------------------------------------------------------- |
-| 御承宸             | `ycc/`           | Online-capable custom general extension and tests                 |
-| Nihilphile Pack | (extension tree) | Distributable character extension package; 御承宸 is first character |
+后续每项改动从基线或后续已验收提交创建独立分支，例如 `codex/jie-luofei-effect-perf`。验证后单独提交，再合并到维护分支。发布按 [发布说明](docs/releasing.md) 操作。
 
-## Extension Source Locations
+`.audit/`、缓存、生成的测试证据和重复 ZIP 不纳入新的提交。本地已有的实验和备份继续保留。主包、测试和固定参考源码禁用 Git 换行转换，以保留源码哈希和嵌入代码的逐字节一致性。
 
-| Item                                   | Path                                               |
-| -------------------------------------- | -------------------------------------------------- |
-| Nihilphile extension source            | `noname/apps/core/extension/nihilphile/`           |
-| Nihilphile extension runtime           | `game/noname/resources/app/extension/nihilphile/`  |
-| yuchengchen extension source (legacy)  | `noname/apps/core/extension/yuchengchen/`          |
-| yuchengchen extension runtime (legacy) | `game/noname/resources/app/extension/yuchengchen/` |
-
-## Conventions
-
-- Keep game runtime source in the location required by noname.
-- Keep project coordination files here.
-- Use CC_Crew group `ycc` for 御承宸 worker dispatch.
-- Do not mix raw worker result stores into this directory. Link to result paths
-  from manifests instead.
+部分原生测试依赖本机无名杀引擎、浏览器或其他外部目录。执行前查看对应测试的环境变量与路径；当前没有可在任意机器运行的统一全绿测试命令。

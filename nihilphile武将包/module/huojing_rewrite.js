@@ -94,6 +94,12 @@
         return "extension/" + EXT_NAME + "/image/character/" + id + "." + (ext || "png");
     }
 
+    function semanticLog() {
+        if (typeof game !== "undefined" && game && typeof game.log === "function") {
+            game.log.apply(game, arguments);
+        }
+    }
+
     function allPlayers() {
         return (game.players || []).concat(game.dead || []);
     }
@@ -301,6 +307,7 @@
     // “帅”的唯一写入口。标记技能本身是权威状态，不另存 player 引用。
     function setCommander(target) {
         if (target && !isInGame(target)) target = null;
+        var previous = getCommander();
         var players = allPlayers();
         for (var i = 0; i < players.length; i++) {
             var current = players[i];
@@ -313,6 +320,13 @@
             // addSkill 已负责在场广播；这两步同时用于阶段边界的标记自愈。
             if (typeof target.syncSkills === "function") target.syncSkills();
             if (typeof target.markSkill === "function") target.markSkill(SHUAI);
+        }
+        if (previous !== target) {
+            if (target) {
+                semanticLog("#g战帅", "：", target, "成为唯一的“帅”");
+            } else if (previous) {
+                semanticLog("#g战帅", "：“帅”位暂时空缺");
+            }
         }
         return target;
     }
@@ -363,6 +377,7 @@
             // 只授予【协攻】，继承者不会凭空获得【军赏】的收益。
             if (owner.hasSkill && owner.hasSkill("nihil_junshang")) {
                 if (typeof owner.logSkill === "function") owner.logSkill("nihil_junshang");
+                semanticLog("#g协攻", "：", owner, "未响应，按自帅特例摸一张牌");
                 await owner.draw(1);
                 return "self_draw";
             }
@@ -370,6 +385,7 @@
         }
 
         if (!isInGame(commander) || owner.countCards("h") <= 0) {
+            semanticLog("#g协攻", "：", owner, "未响应且无法交牌");
             return "no_handcard";
         }
 
@@ -387,6 +403,7 @@
         }
 
         if (typeof owner.logSkill === "function") owner.logSkill(XIEGONG, commander);
+        semanticLog("#g协攻", "：", owner, "未响应，进入向", commander, "交牌的分支");
         await owner.give(result.cards, commander);
         return "gave_handcard";
     }
@@ -555,6 +572,8 @@
                 setCommander(successor);
                 if (successor && typeof successor.logSkill === "function") {
                     successor.logSkill(ZHANSHUAI);
+                } else if (!successor) {
+                    semanticLog("#g战帅", "：“帅”阵亡，帅位空缺");
                 }
             },
         },
@@ -603,6 +622,12 @@
                     return;
                 }
                 addXiegongBonus(trigger);
+                semanticLog(
+                    "#g协攻",
+                    "：",
+                    player,
+                    "响应成功；“帅”的此【杀】伤害+1，所需【闪】+1",
+                );
             },
             ai: {
                 threaten: 1.4,
@@ -691,6 +716,7 @@
                 var target = result.targets[0];
                 player.logSkill("nihil_yizhong", target);
                 await target.addSkills(XIEGONG);
+                semanticLog("#g遗忠", "：", target, "获得【协攻】");
             },
         },
     };

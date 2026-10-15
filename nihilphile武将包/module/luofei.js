@@ -16,6 +16,12 @@
         );
     }
 
+    function semanticLog() {
+        if (typeof game !== "undefined" && game && typeof game.log === "function") {
+            game.log.apply(game, arguments);
+        }
+    }
+
     function isLoseHpChange(event) {
         if (
             !event ||
@@ -55,6 +61,7 @@
     function removeBlood(player, num) {
         player.removeMark(BLOOD_MARK, num, false);
         syncLifeState(player);
+        semanticLog(player, "移去了", get.cnNumber(num), "枚", "#g血");
     }
 
     // ============================================================
@@ -370,7 +377,6 @@
                 }
             },
             group: [
-                "nihil_lianxi_start",
                 "nihil_lianxi_convert",
                 "nihil_lianxi_losehp",
                 "nihil_lianxi_selfloss",
@@ -391,24 +397,6 @@
             },
         },
 
-        // 游戏开始时获得2枚“血”；enterGame 兼容中途加入游戏的角色。
-        nihil_lianxi_start: {
-            charlotte: true,
-            sourceSkill: "nihil_lianxi",
-            trigger: {
-                player: "enterGame",
-                global: "phaseBefore",
-            },
-            forced: true,
-            popup: false,
-            filter: function (event) {
-                return event.name !== "phase" || game.phaseNumber === 0;
-            },
-            async content(event, trigger, player) {
-                addBlood(player, 2);
-            },
-        },
-
         // 造成伤害时，防止该伤害并令目标改为流失等量体力。
         nihil_lianxi_convert: {
             charlotte: true,
@@ -424,6 +412,14 @@
                 var num = trigger.num;
                 trigger.cancel();
                 player.logSkill("nihil_lianxi", target);
+                semanticLog(
+                    "#g敛息",
+                    "：将对",
+                    target,
+                    "的",
+                    get.cnNumber(num),
+                    "点伤害改为等量体力流失",
+                );
                 await target.loseHp(num);
             },
         },
@@ -713,7 +709,7 @@
 
         nihil_lianxi: "敛息",
         nihil_lianxi_info:
-            "<b>锁定技，</b>游戏开始时，你获得两枚“血”。当你造成伤害时，改为目标流失等量体力。" +
+            "<b>锁定技，</b>当你造成伤害时，改为目标流失等量体力。" +
             "每当一名角色流失一点体力，或你损失一点体力，你获得一枚“血”。",
 
         nihil_dianchao: "殷潮",

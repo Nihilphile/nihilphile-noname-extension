@@ -1,0 +1,5300 @@
+{
+  "sha256": "12a90c940db21d7dbd87296fa3c754f60b32c2ced8f6a3d474e00a6ecb96d1dc",
+  "records": [
+    {
+      "scenario": "basic-use",
+      "steps": [
+        {
+          "view": {
+            "snapshot": {
+              "owner": "owner",
+              "hand": [
+                {
+                  "id": "c1",
+                  "name": "sha",
+                  "type": "basic",
+                  "suit": "spade",
+                  "color": "black",
+                  "nature": "",
+                  "range": 1,
+                  "globalFrom": 0,
+                  "globalTo": 0,
+                  "damage": 0,
+                  "recover": 0,
+                  "draw": 0,
+                  "playerValue": 0,
+                  "targetValue": 0,
+                  "enabled": {
+                    "owner": true,
+                    "loser": true,
+                    "third": true
+                  },
+                  "groups": {
+                    "owner": [
+                      [
+                        "loser"
+                      ],
+                      [
+                        "third"
+                      ]
+                    ],
+                    "loser": [
+                      [
+                        "owner"
+                      ],
+                      [
+                        "third"
+                      ]
+                    ],
+                    "third": [
+                      [
+                        "owner"
+                      ],
+                      [
+                        "loser"
+                      ]
+                    ]
+                  },
+                  "denied": {
+                    "owner:owner": true,
+                    "owner:loser": false,
+                    "owner:third": false,
+                    "loser:owner": false,
+                    "loser:loser": true,
+                    "loser:third": false,
+                    "third:owner": false,
+                    "third:loser": false,
+                    "third:third": true
+                  },
+                  "responseDenied": {
+                    "owner:owner": true,
+                    "owner:loser": false,
+                    "owner:third": false,
+                    "loser:owner": false,
+                    "loser:loser": true,
+                    "loser:third": false,
+                    "third:owner": false,
+                    "third:loser": false,
+                    "third:third": true
+                  },
+                  "rescueEnabled": false,
+                  "discardable": true
+                }
+              ],
+              "players": [
+                {
+                  "id": "owner",
+                  "alive": true,
+                  "hp": 3,
+                  "maxHp": 3,
+                  "armor": 0,
+                  "mark": false,
+                  "used": false,
+                  "drunk": 0,
+                  "linked": false,
+                  "attitude": 1,
+                  "known": [],
+                  "unknown": 0,
+                  "equips": [],
+                  "judges": [],
+                  "baseRange": 1,
+                  "limitExtra": 0,
+                  "equipDisabled": [],
+                  "noResponse": {}
+                },
+                {
+                  "id": "loser",
+                  "alive": true,
+                  "hp": 3,
+                  "maxHp": 3,
+                  "armor": 0,
+                  "mark": false,
+                  "used": false,
+                  "drunk": 0,
+                  "linked": false,
+                  "attitude": 1,
+                  "known": [],
+                  "unknown": 0,
+                  "equips": [],
+                  "judges": [],
+                  "baseRange": 1,
+                  "limitExtra": 0,
+                  "equipDisabled": [],
+                  "noResponse": {}
+                },
+                {
+                  "id": "third",
+                  "alive": true,
+                  "hp": 3,
+                  "maxHp": 3,
+                  "armor": 0,
+                  "mark": false,
+                  "used": false,
+                  "drunk": 0,
+                  "linked": false,
+                  "attitude": -1,
+                  "known": [],
+                  "unknown": 0,
+                  "equips": [],
+                  "judges": [],
+                  "baseRange": 1,
+                  "limitExtra": 0,
+                  "equipDisabled": [],
+                  "noResponse": {}
+                }
+              ],
+              "quota": {
+                "damage": true,
+                "remove": true,
+                "puppetSha": false,
+                "normalSha": 0,
+                "normalJiu": 0
+              },
+              "distances": {
+                "owner:owner": 1,
+                "owner:loser": 1,
+                "owner:third": 1,
+                "loser:owner": 1,
+                "loser:loser": 1,
+                "loser:third": 1,
+                "third:owner": 1,
+                "third:loser": 1,
+                "third:third": 1
+              },
+              "initialEquips": {
+                "owner": [],
+                "loser": [],
+                "third": []
+              },
+              "roots": [
+                {
+                  "kind": "normal",
+                  "card": "c1",
+                  "user": "owner",
+                  "targets": [
+                    "loser"
+                  ]
+                },
+                {
+                  "kind": "normal",
+                  "card": "c1",
+                  "user": "owner",
+                  "targets": [
+                    "third"
+                  ]
+                }
+              ],
+              "shaLimit": 1,
+              "chainOrder": [
+                "owner",
+                "loser",
+                "third"
+              ]
+            },
+            "decision": {
+              "source": "benchmark-winner",
+              "firstAction": {
+                "kind": "normal",
+                "card": "c1",
+                "user": "owner",
+                "targets": [
+                  "third"
+                ]
+              },
+              "score": 1,
+              "continuation": [],
+              "ranked": [
+                {
+                  "action": {
+                    "kind": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "third"
+                    ]
+                  },
+                  "recommended": true
+                },
+                {
+                  "action": {
+                    "kind": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "loser"
+                    ]
+                  },
+                  "recommended": false
+                }
+              ],
+              "coverage": {
+                "roots": 2
+              },
+              "observation": {
+                "status": "choice",
+                "owner": "owner",
+                "actor": "owner",
+                "turn": 1,
+                "phase": "play",
+                "request": {
+                  "id": 1,
+                  "kind": "play",
+                  "actor": "owner"
+                },
+                "legalActions": [
+                  {
+                    "type": "play",
+                    "mode": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "loser"
+                    ]
+                  },
+                  {
+                    "type": "play",
+                    "mode": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "third"
+                    ]
+                  },
+                  {
+                    "type": "endPlay"
+                  }
+                ],
+                "ownerHand": [
+                  {
+                    "id": "c1",
+                    "name": "sha",
+                    "suit": "spade",
+                    "rank": 7
+                  }
+                ],
+                "players": [
+                  {
+                    "id": "owner",
+                    "team": "ally",
+                    "sex": "none",
+                    "hp": 3,
+                    "maxHp": 3,
+                    "alive": true,
+                    "handCount": 1,
+                    "equipment": {},
+                    "judgments": [],
+                    "mark": false,
+                    "linked": false,
+                    "armor": 0,
+                    "wine": 0
+                  },
+                  {
+                    "id": "loser",
+                    "team": "ally",
+                    "sex": "none",
+                    "hp": 3,
+                    "maxHp": 3,
+                    "alive": true,
+                    "handCount": 0,
+                    "equipment": {},
+                    "judgments": [],
+                    "mark": false,
+                    "linked": false,
+                    "armor": 0,
+                    "wine": 0
+                  },
+                  {
+                    "id": "third",
+                    "team": "enemy",
+                    "sex": "none",
+                    "hp": 3,
+                    "maxHp": 3,
+                    "alive": true,
+                    "handCount": 0,
+                    "equipment": {},
+                    "judgments": [],
+                    "mark": false,
+                    "linked": false,
+                    "armor": 0,
+                    "wine": 0
+                  }
+                ],
+                "quotas": {
+                  "puppetSha": false,
+                  "shishengDamage": true,
+                  "shishengRemove": true,
+                  "normalSha": 0,
+                  "normalJiu": 0,
+                  "usedSources": []
+                },
+                "events": []
+              }
+            }
+          },
+          "choice": {
+            "kind": "normal",
+            "bool": true,
+            "cards": [
+              "c1"
+            ],
+            "targets": [
+              "third"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "scenario": "marked-owner-and-ally",
+      "steps": [
+        {
+          "view": {
+            "snapshot": {
+              "owner": "owner",
+              "hand": [
+                {
+                  "id": "c1",
+                  "name": "sha",
+                  "type": "basic",
+                  "suit": "spade",
+                  "color": "black",
+                  "nature": "",
+                  "range": 1,
+                  "globalFrom": 0,
+                  "globalTo": 0,
+                  "damage": 0,
+                  "recover": 0,
+                  "draw": 0,
+                  "playerValue": 0,
+                  "targetValue": 0,
+                  "enabled": {
+                    "owner": true,
+                    "loser": true,
+                    "third": true
+                  },
+                  "groups": {
+                    "owner": [
+                      [
+                        "loser"
+                      ],
+                      [
+                        "third"
+                      ]
+                    ],
+                    "loser": [
+                      [
+                        "owner"
+                      ],
+                      [
+                        "third"
+                      ]
+                    ],
+                    "third": [
+                      [
+                        "owner"
+                      ],
+                      [
+                        "loser"
+                      ]
+                    ]
+                  },
+                  "denied": {
+                    "owner:owner": true,
+                    "owner:loser": false,
+                    "owner:third": false,
+                    "loser:owner": false,
+                    "loser:loser": true,
+                    "loser:third": false,
+                    "third:owner": false,
+                    "third:loser": false,
+                    "third:third": true
+                  },
+                  "responseDenied": {
+                    "owner:owner": true,
+                    "owner:loser": false,
+                    "owner:third": false,
+                    "loser:owner": false,
+                    "loser:loser": true,
+                    "loser:third": false,
+                    "third:owner": false,
+                    "third:loser": false,
+                    "third:third": true
+                  },
+                  "rescueEnabled": false,
+                  "discardable": true
+                },
+                {
+                  "id": "c2",
+                  "name": "shan",
+                  "type": "basic",
+                  "suit": "spade",
+                  "color": "black",
+                  "nature": "",
+                  "range": 1,
+                  "globalFrom": 0,
+                  "globalTo": 0,
+                  "damage": 0,
+                  "recover": 0,
+                  "draw": 0,
+                  "playerValue": 1,
+                  "targetValue": 0,
+                  "enabled": {
+                    "owner": false,
+                    "loser": false,
+                    "third": false
+                  },
+                  "groups": {
+                    "owner": [],
+                    "loser": [],
+                    "third": []
+                  },
+                  "denied": {},
+                  "responseDenied": {},
+                  "rescueEnabled": false,
+                  "discardable": true
+                }
+              ],
+              "players": [
+                {
+                  "id": "owner",
+                  "alive": true,
+                  "hp": 3,
+                  "maxHp": 3,
+                  "armor": 0,
+                  "mark": true,
+                  "used": false,
+                  "drunk": 0,
+                  "linked": false,
+                  "attitude": 1,
+                  "known": [],
+                  "unknown": 0,
+                  "equips": [],
+                  "judges": [],
+                  "baseRange": 1,
+                  "limitExtra": 0,
+                  "equipDisabled": [],
+                  "noResponse": {}
+                },
+                {
+                  "id": "loser",
+                  "alive": true,
+                  "hp": 3,
+                  "maxHp": 3,
+                  "armor": 0,
+                  "mark": true,
+                  "used": false,
+                  "drunk": 0,
+                  "linked": false,
+                  "attitude": 1,
+                  "known": [],
+                  "unknown": 0,
+                  "equips": [],
+                  "judges": [],
+                  "baseRange": 1,
+                  "limitExtra": 0,
+                  "equipDisabled": [],
+                  "noResponse": {}
+                },
+                {
+                  "id": "third",
+                  "alive": true,
+                  "hp": 3,
+                  "maxHp": 3,
+                  "armor": 0,
+                  "mark": false,
+                  "used": false,
+                  "drunk": 0,
+                  "linked": false,
+                  "attitude": -1,
+                  "known": [],
+                  "unknown": 0,
+                  "equips": [],
+                  "judges": [],
+                  "baseRange": 1,
+                  "limitExtra": 0,
+                  "equipDisabled": [],
+                  "noResponse": {}
+                }
+              ],
+              "quota": {
+                "damage": true,
+                "remove": true,
+                "puppetSha": false,
+                "normalSha": 0,
+                "normalJiu": 0
+              },
+              "distances": {
+                "owner:owner": 1,
+                "owner:loser": 1,
+                "owner:third": 1,
+                "loser:owner": 1,
+                "loser:loser": 1,
+                "loser:third": 1,
+                "third:owner": 1,
+                "third:loser": 1,
+                "third:third": 1
+              },
+              "initialEquips": {
+                "owner": [],
+                "loser": [],
+                "third": []
+              },
+              "roots": [
+                {
+                  "kind": "normal",
+                  "card": "c1",
+                  "user": "owner",
+                  "targets": [
+                    "loser"
+                  ]
+                },
+                {
+                  "kind": "puppet",
+                  "card": "c1",
+                  "user": "owner",
+                  "targets": [
+                    "loser"
+                  ]
+                },
+                {
+                  "kind": "normal",
+                  "card": "c1",
+                  "user": "owner",
+                  "targets": [
+                    "third"
+                  ]
+                },
+                {
+                  "kind": "puppet",
+                  "card": "c1",
+                  "user": "owner",
+                  "targets": [
+                    "third"
+                  ]
+                },
+                {
+                  "kind": "puppet",
+                  "card": "c1",
+                  "user": "loser",
+                  "targets": [
+                    "owner"
+                  ]
+                },
+                {
+                  "kind": "puppet",
+                  "card": "c1",
+                  "user": "loser",
+                  "targets": [
+                    "third"
+                  ]
+                }
+              ],
+              "shaLimit": 1,
+              "chainOrder": [
+                "owner",
+                "loser",
+                "third"
+              ]
+            },
+            "decision": {
+              "source": "benchmark-winner",
+              "firstAction": {
+                "kind": "normal",
+                "card": "c1",
+                "user": "owner",
+                "targets": [
+                  "third"
+                ]
+              },
+              "score": 1,
+              "continuation": [],
+              "ranked": [
+                {
+                  "action": {
+                    "kind": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "third"
+                    ]
+                  },
+                  "recommended": true
+                },
+                {
+                  "action": {
+                    "kind": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "loser"
+                    ]
+                  },
+                  "recommended": false
+                },
+                {
+                  "action": {
+                    "kind": "puppet",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "loser"
+                    ]
+                  },
+                  "recommended": false
+                },
+                {
+                  "action": {
+                    "kind": "puppet",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "third"
+                    ]
+                  },
+                  "recommended": false
+                },
+                {
+                  "action": {
+                    "kind": "puppet",
+                    "card": "c1",
+                    "user": "loser",
+                    "targets": [
+                      "owner"
+                    ]
+                  },
+                  "recommended": false
+                },
+                {
+                  "action": {
+                    "kind": "puppet",
+                    "card": "c1",
+                    "user": "loser",
+                    "targets": [
+                      "third"
+                    ]
+                  },
+                  "recommended": false
+                }
+              ],
+              "coverage": {
+                "roots": 6
+              },
+              "observation": {
+                "status": "choice",
+                "owner": "owner",
+                "actor": "owner",
+                "turn": 1,
+                "phase": "play",
+                "request": {
+                  "id": 1,
+                  "kind": "play",
+                  "actor": "owner"
+                },
+                "legalActions": [
+                  {
+                    "type": "play",
+                    "mode": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "loser"
+                    ]
+                  },
+                  {
+                    "type": "play",
+                    "mode": "puppet",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "loser"
+                    ]
+                  },
+                  {
+                    "type": "play",
+                    "mode": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "third"
+                    ]
+                  },
+                  {
+                    "type": "play",
+                    "mode": "puppet",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "third"
+                    ]
+                  },
+                  {
+                    "type": "play",
+                    "mode": "puppet",
+                    "card": "c1",
+                    "user": "loser",
+                    "targets": [
+                      "owner"
+                    ]
+                  },
+                  {
+                    "type": "play",
+                    "mode": "puppet",
+                    "card": "c1",
+                    "user": "loser",
+                    "targets": [
+                      "third"
+                    ]
+                  },
+                  {
+                    "type": "endPlay"
+                  }
+                ],
+                "ownerHand": [
+                  {
+                    "id": "c1",
+                    "name": "sha",
+                    "suit": "spade",
+                    "rank": 7
+                  },
+                  {
+                    "id": "c2",
+                    "name": "shan",
+                    "suit": "spade",
+                    "rank": 7
+                  }
+                ],
+                "players": [
+                  {
+                    "id": "owner",
+                    "team": "ally",
+                    "sex": "none",
+                    "hp": 3,
+                    "maxHp": 3,
+                    "alive": true,
+                    "handCount": 2,
+                    "equipment": {},
+                    "judgments": [],
+                    "mark": true,
+                    "linked": false,
+                    "armor": 0,
+                    "wine": 0
+                  },
+                  {
+                    "id": "loser",
+                    "team": "ally",
+                    "sex": "none",
+                    "hp": 3,
+                    "maxHp": 3,
+                    "alive": true,
+                    "handCount": 0,
+                    "equipment": {},
+                    "judgments": [],
+                    "mark": true,
+                    "linked": false,
+                    "armor": 0,
+                    "wine": 0
+                  },
+                  {
+                    "id": "third",
+                    "team": "enemy",
+                    "sex": "none",
+                    "hp": 3,
+                    "maxHp": 3,
+                    "alive": true,
+                    "handCount": 0,
+                    "equipment": {},
+                    "judgments": [],
+                    "mark": false,
+                    "linked": false,
+                    "armor": 0,
+                    "wine": 0
+                  }
+                ],
+                "quotas": {
+                  "puppetSha": false,
+                  "shishengDamage": true,
+                  "shishengRemove": true,
+                  "normalSha": 0,
+                  "normalJiu": 0,
+                  "usedSources": []
+                },
+                "events": []
+              }
+            }
+          },
+          "choice": {
+            "kind": "normal",
+            "bool": true,
+            "cards": [
+              "c1"
+            ],
+            "targets": [
+              "third"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "scenario": "puppet-material",
+      "steps": [
+        {
+          "view": {
+            "snapshot": {
+              "owner": "owner",
+              "hand": [
+                {
+                  "id": "c1",
+                  "name": "sha",
+                  "type": "basic",
+                  "suit": "spade",
+                  "color": "black",
+                  "nature": "",
+                  "range": 1,
+                  "globalFrom": 0,
+                  "globalTo": 0,
+                  "damage": 0,
+                  "recover": 0,
+                  "draw": 0,
+                  "playerValue": 0,
+                  "targetValue": 0,
+                  "enabled": {
+                    "owner": false,
+                    "loser": true,
+                    "third": true
+                  },
+                  "groups": {
+                    "owner": [],
+                    "loser": [
+                      [
+                        "owner"
+                      ],
+                      [
+                        "third"
+                      ]
+                    ],
+                    "third": [
+                      [
+                        "owner"
+                      ],
+                      [
+                        "loser"
+                      ]
+                    ]
+                  },
+                  "denied": {
+                    "owner:owner": true,
+                    "owner:loser": false,
+                    "owner:third": false,
+                    "loser:owner": false,
+                    "loser:loser": true,
+                    "loser:third": false,
+                    "third:owner": false,
+                    "third:loser": false,
+                    "third:third": true
+                  },
+                  "responseDenied": {
+                    "owner:owner": true,
+                    "owner:loser": true,
+                    "owner:third": true,
+                    "loser:owner": false,
+                    "loser:loser": true,
+                    "loser:third": false,
+                    "third:owner": false,
+                    "third:loser": false,
+                    "third:third": true
+                  },
+                  "rescueEnabled": false,
+                  "discardable": true
+                },
+                {
+                  "id": "c2",
+                  "name": "shan",
+                  "type": "basic",
+                  "suit": "spade",
+                  "color": "black",
+                  "nature": "",
+                  "range": 1,
+                  "globalFrom": 0,
+                  "globalTo": 0,
+                  "damage": 0,
+                  "recover": 0,
+                  "draw": 0,
+                  "playerValue": 1,
+                  "targetValue": 0,
+                  "enabled": {
+                    "owner": false,
+                    "loser": false,
+                    "third": false
+                  },
+                  "groups": {
+                    "owner": [],
+                    "loser": [],
+                    "third": []
+                  },
+                  "denied": {},
+                  "responseDenied": {},
+                  "rescueEnabled": false,
+                  "discardable": true
+                }
+              ],
+              "players": [
+                {
+                  "id": "owner",
+                  "alive": true,
+                  "hp": 3,
+                  "maxHp": 3,
+                  "armor": 0,
+                  "mark": false,
+                  "used": false,
+                  "drunk": 0,
+                  "linked": false,
+                  "attitude": 1,
+                  "known": [],
+                  "unknown": 0,
+                  "equips": [],
+                  "judges": [],
+                  "baseRange": 1,
+                  "limitExtra": 0,
+                  "equipDisabled": [],
+                  "noResponse": {}
+                },
+                {
+                  "id": "loser",
+                  "alive": true,
+                  "hp": 3,
+                  "maxHp": 3,
+                  "armor": 0,
+                  "mark": true,
+                  "used": false,
+                  "drunk": 0,
+                  "linked": false,
+                  "attitude": 1,
+                  "known": [],
+                  "unknown": 0,
+                  "equips": [],
+                  "judges": [],
+                  "baseRange": 1,
+                  "limitExtra": 0,
+                  "equipDisabled": [],
+                  "noResponse": {}
+                },
+                {
+                  "id": "third",
+                  "alive": true,
+                  "hp": 3,
+                  "maxHp": 3,
+                  "armor": 0,
+                  "mark": false,
+                  "used": false,
+                  "drunk": 0,
+                  "linked": false,
+                  "attitude": -1,
+                  "known": [],
+                  "unknown": 0,
+                  "equips": [],
+                  "judges": [],
+                  "baseRange": 1,
+                  "limitExtra": 0,
+                  "equipDisabled": [],
+                  "noResponse": {}
+                }
+              ],
+              "quota": {
+                "damage": true,
+                "remove": true,
+                "puppetSha": false,
+                "normalSha": 0,
+                "normalJiu": 0
+              },
+              "distances": {
+                "owner:owner": 1,
+                "owner:loser": 1,
+                "owner:third": 1,
+                "loser:owner": 1,
+                "loser:loser": 1,
+                "loser:third": 1,
+                "third:owner": 1,
+                "third:loser": 1,
+                "third:third": 1
+              },
+              "initialEquips": {
+                "owner": [],
+                "loser": [],
+                "third": []
+              },
+              "roots": [
+                {
+                  "kind": "puppet",
+                  "card": "c1",
+                  "user": "loser",
+                  "targets": [
+                    "owner"
+                  ]
+                },
+                {
+                  "kind": "puppet",
+                  "card": "c1",
+                  "user": "loser",
+                  "targets": [
+                    "third"
+                  ]
+                }
+              ],
+              "shaLimit": 1,
+              "chainOrder": [
+                "owner",
+                "loser",
+                "third"
+              ]
+            },
+            "decision": {
+              "source": "benchmark-winner",
+              "firstAction": {
+                "kind": "puppet",
+                "card": "c1",
+                "user": "loser",
+                "targets": [
+                  "third"
+                ]
+              },
+              "score": 1,
+              "continuation": [],
+              "ranked": [
+                {
+                  "action": {
+                    "kind": "puppet",
+                    "card": "c1",
+                    "user": "loser",
+                    "targets": [
+                      "third"
+                    ]
+                  },
+                  "recommended": true
+                },
+                {
+                  "action": {
+                    "kind": "puppet",
+                    "card": "c1",
+                    "user": "loser",
+                    "targets": [
+                      "owner"
+                    ]
+                  },
+                  "recommended": false
+                }
+              ],
+              "coverage": {
+                "roots": 2
+              },
+              "observation": {
+                "status": "choice",
+                "owner": "owner",
+                "actor": "owner",
+                "turn": 1,
+                "phase": "play",
+                "request": {
+                  "id": 1,
+                  "kind": "play",
+                  "actor": "owner"
+                },
+                "legalActions": [
+                  {
+                    "type": "play",
+                    "mode": "puppet",
+                    "card": "c1",
+                    "user": "loser",
+                    "targets": [
+                      "owner"
+                    ]
+                  },
+                  {
+                    "type": "play",
+                    "mode": "puppet",
+                    "card": "c1",
+                    "user": "loser",
+                    "targets": [
+                      "third"
+                    ]
+                  },
+                  {
+                    "type": "endPlay"
+                  }
+                ],
+                "ownerHand": [
+                  {
+                    "id": "c1",
+                    "name": "sha",
+                    "suit": "spade",
+                    "rank": 7
+                  },
+                  {
+                    "id": "c2",
+                    "name": "shan",
+                    "suit": "spade",
+                    "rank": 7
+                  }
+                ],
+                "players": [
+                  {
+                    "id": "owner",
+                    "team": "ally",
+                    "sex": "none",
+                    "hp": 3,
+                    "maxHp": 3,
+                    "alive": true,
+                    "handCount": 2,
+                    "equipment": {},
+                    "judgments": [],
+                    "mark": false,
+                    "linked": false,
+                    "armor": 0,
+                    "wine": 0
+                  },
+                  {
+                    "id": "loser",
+                    "team": "ally",
+                    "sex": "none",
+                    "hp": 3,
+                    "maxHp": 3,
+                    "alive": true,
+                    "handCount": 0,
+                    "equipment": {},
+                    "judgments": [],
+                    "mark": true,
+                    "linked": false,
+                    "armor": 0,
+                    "wine": 0
+                  },
+                  {
+                    "id": "third",
+                    "team": "enemy",
+                    "sex": "none",
+                    "hp": 3,
+                    "maxHp": 3,
+                    "alive": true,
+                    "handCount": 0,
+                    "equipment": {},
+                    "judgments": [],
+                    "mark": false,
+                    "linked": false,
+                    "armor": 0,
+                    "wine": 0
+                  }
+                ],
+                "quotas": {
+                  "puppetSha": false,
+                  "shishengDamage": true,
+                  "shishengRemove": true,
+                  "normalSha": 0,
+                  "normalJiu": 0,
+                  "usedSources": []
+                },
+                "events": []
+              }
+            }
+          },
+          "choice": {
+            "kind": "puppet",
+            "cardSelected": true,
+            "userSelected": true,
+            "card": "c1",
+            "user": "loser",
+            "targets": [
+              "third"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "scenario": "equipment-preparation",
+      "steps": [
+        {
+          "view": {
+            "snapshot": {
+              "owner": "owner",
+              "hand": [
+                {
+                  "id": "c1",
+                  "name": "qinglong",
+                  "type": "equip",
+                  "subtype": "equip1",
+                  "suit": "spade",
+                  "color": "black",
+                  "nature": "",
+                  "range": 3,
+                  "globalFrom": 0,
+                  "globalTo": 0,
+                  "damage": 0,
+                  "recover": 0,
+                  "draw": 0,
+                  "playerValue": 0,
+                  "targetValue": 0,
+                  "enabled": {
+                    "owner": true,
+                    "loser": true,
+                    "third": true
+                  },
+                  "groups": {
+                    "owner": [
+                      [
+                        "owner"
+                      ]
+                    ],
+                    "loser": [
+                      [
+                        "loser"
+                      ]
+                    ],
+                    "third": [
+                      [
+                        "third"
+                      ]
+                    ]
+                  },
+                  "denied": {},
+                  "responseDenied": {},
+                  "rescueEnabled": false,
+                  "discardable": true
+                },
+                {
+                  "id": "c2",
+                  "name": "sha",
+                  "type": "basic",
+                  "suit": "spade",
+                  "color": "black",
+                  "nature": "",
+                  "range": 1,
+                  "globalFrom": 0,
+                  "globalTo": 0,
+                  "damage": 0,
+                  "recover": 0,
+                  "draw": 0,
+                  "playerValue": 0,
+                  "targetValue": 0,
+                  "enabled": {
+                    "owner": true,
+                    "loser": true,
+                    "third": true
+                  },
+                  "groups": {
+                    "owner": [
+                      [
+                        "loser"
+                      ]
+                    ],
+                    "loser": [
+                      [
+                        "owner"
+                      ]
+                    ],
+                    "third": [
+                      [
+                        "owner"
+                      ],
+                      [
+                        "loser"
+                      ]
+                    ]
+                  },
+                  "denied": {
+                    "owner:owner": true,
+                    "owner:loser": false,
+                    "owner:third": false,
+                    "loser:owner": false,
+                    "loser:loser": true,
+                    "loser:third": false,
+                    "third:owner": false,
+                    "third:loser": false,
+                    "third:third": true
+                  },
+                  "responseDenied": {
+                    "owner:owner": true,
+                    "owner:loser": false,
+                    "owner:third": false,
+                    "loser:owner": false,
+                    "loser:loser": true,
+                    "loser:third": false,
+                    "third:owner": false,
+                    "third:loser": false,
+                    "third:third": true
+                  },
+                  "rescueEnabled": false,
+                  "discardable": true
+                }
+              ],
+              "players": [
+                {
+                  "id": "owner",
+                  "alive": true,
+                  "hp": 3,
+                  "maxHp": 3,
+                  "armor": 0,
+                  "mark": false,
+                  "used": false,
+                  "drunk": 0,
+                  "linked": false,
+                  "attitude": 1,
+                  "known": [],
+                  "unknown": 0,
+                  "equips": [],
+                  "judges": [],
+                  "baseRange": 1,
+                  "limitExtra": 0,
+                  "equipDisabled": [],
+                  "noResponse": {}
+                },
+                {
+                  "id": "loser",
+                  "alive": true,
+                  "hp": 3,
+                  "maxHp": 3,
+                  "armor": 0,
+                  "mark": false,
+                  "used": false,
+                  "drunk": 0,
+                  "linked": false,
+                  "attitude": 1,
+                  "known": [],
+                  "unknown": 0,
+                  "equips": [],
+                  "judges": [],
+                  "baseRange": 1,
+                  "limitExtra": 0,
+                  "equipDisabled": [],
+                  "noResponse": {}
+                },
+                {
+                  "id": "third",
+                  "alive": true,
+                  "hp": 3,
+                  "maxHp": 3,
+                  "armor": 0,
+                  "mark": false,
+                  "used": false,
+                  "drunk": 0,
+                  "linked": false,
+                  "attitude": -1,
+                  "known": [],
+                  "unknown": 0,
+                  "equips": [],
+                  "judges": [],
+                  "baseRange": 1,
+                  "limitExtra": 0,
+                  "equipDisabled": [],
+                  "noResponse": {}
+                }
+              ],
+              "quota": {
+                "damage": true,
+                "remove": true,
+                "puppetSha": false,
+                "normalSha": 0,
+                "normalJiu": 0
+              },
+              "distances": {
+                "owner:owner": 1,
+                "owner:loser": 1,
+                "owner:third": 5,
+                "loser:owner": 1,
+                "loser:loser": 1,
+                "loser:third": 5,
+                "third:owner": 1,
+                "third:loser": 1,
+                "third:third": 5
+              },
+              "initialEquips": {
+                "owner": [],
+                "loser": [],
+                "third": []
+              },
+              "roots": [
+                {
+                  "kind": "normal",
+                  "card": "c1",
+                  "user": "owner",
+                  "targets": [
+                    "owner"
+                  ]
+                },
+                {
+                  "kind": "normal",
+                  "card": "c2",
+                  "user": "owner",
+                  "targets": [
+                    "loser"
+                  ]
+                }
+              ],
+              "shaLimit": 1,
+              "chainOrder": [
+                "owner",
+                "loser",
+                "third"
+              ]
+            },
+            "decision": {
+              "source": "benchmark-winner",
+              "firstAction": {
+                "kind": "normal",
+                "card": "c1",
+                "user": "owner",
+                "targets": [
+                  "owner"
+                ]
+              },
+              "score": 1,
+              "continuation": [],
+              "ranked": [
+                {
+                  "action": {
+                    "kind": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "owner"
+                    ]
+                  },
+                  "recommended": true
+                },
+                {
+                  "action": {
+                    "kind": "normal",
+                    "card": "c2",
+                    "user": "owner",
+                    "targets": [
+                      "loser"
+                    ]
+                  },
+                  "recommended": false
+                }
+              ],
+              "coverage": {
+                "roots": 2
+              },
+              "observation": {
+                "status": "choice",
+                "owner": "owner",
+                "actor": "owner",
+                "turn": 1,
+                "phase": "play",
+                "request": {
+                  "id": 1,
+                  "kind": "play",
+                  "actor": "owner"
+                },
+                "legalActions": [
+                  {
+                    "type": "play",
+                    "mode": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "owner"
+                    ]
+                  },
+                  {
+                    "type": "play",
+                    "mode": "normal",
+                    "card": "c2",
+                    "user": "owner",
+                    "targets": [
+                      "loser"
+                    ]
+                  },
+                  {
+                    "type": "endPlay"
+                  }
+                ],
+                "ownerHand": [
+                  {
+                    "id": "c1",
+                    "name": "qinglong",
+                    "suit": "spade",
+                    "rank": 7
+                  },
+                  {
+                    "id": "c2",
+                    "name": "sha",
+                    "suit": "spade",
+                    "rank": 7
+                  }
+                ],
+                "players": [
+                  {
+                    "id": "owner",
+                    "team": "ally",
+                    "sex": "none",
+                    "hp": 3,
+                    "maxHp": 3,
+                    "alive": true,
+                    "handCount": 2,
+                    "equipment": {},
+                    "judgments": [],
+                    "mark": false,
+                    "linked": false,
+                    "armor": 0,
+                    "wine": 0
+                  },
+                  {
+                    "id": "loser",
+                    "team": "ally",
+                    "sex": "none",
+                    "hp": 3,
+                    "maxHp": 3,
+                    "alive": true,
+                    "handCount": 0,
+                    "equipment": {},
+                    "judgments": [],
+                    "mark": false,
+                    "linked": false,
+                    "armor": 0,
+                    "wine": 0
+                  },
+                  {
+                    "id": "third",
+                    "team": "enemy",
+                    "sex": "none",
+                    "hp": 3,
+                    "maxHp": 3,
+                    "alive": true,
+                    "handCount": 0,
+                    "equipment": {},
+                    "judgments": [],
+                    "mark": false,
+                    "linked": false,
+                    "armor": 0,
+                    "wine": 0
+                  }
+                ],
+                "quotas": {
+                  "puppetSha": false,
+                  "shishengDamage": true,
+                  "shishengRemove": true,
+                  "normalSha": 0,
+                  "normalJiu": 0,
+                  "usedSources": []
+                },
+                "events": []
+              }
+            }
+          },
+          "choice": {
+            "kind": "normal",
+            "bool": true,
+            "cards": [
+              "c1"
+            ],
+            "targets": [
+              "owner"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "scenario": "wine-chain",
+      "steps": [
+        {
+          "view": {
+            "snapshot": {
+              "owner": "owner",
+              "hand": [
+                {
+                  "id": "c1",
+                  "name": "jiu",
+                  "type": "basic",
+                  "suit": "spade",
+                  "color": "black",
+                  "nature": "",
+                  "range": 1,
+                  "globalFrom": 0,
+                  "globalTo": 0,
+                  "damage": 0,
+                  "recover": 0.1,
+                  "draw": 0,
+                  "playerValue": 0,
+                  "targetValue": 0,
+                  "enabled": {
+                    "owner": true,
+                    "loser": true,
+                    "third": true
+                  },
+                  "groups": {
+                    "owner": [
+                      [
+                        "owner"
+                      ]
+                    ],
+                    "loser": [
+                      [
+                        "loser"
+                      ]
+                    ],
+                    "third": [
+                      [
+                        "third"
+                      ]
+                    ]
+                  },
+                  "denied": {},
+                  "responseDenied": {},
+                  "rescueEnabled": true,
+                  "discardable": true
+                },
+                {
+                  "id": "c2",
+                  "name": "sha",
+                  "type": "basic",
+                  "suit": "spade",
+                  "color": "black",
+                  "nature": "",
+                  "range": 1,
+                  "globalFrom": 0,
+                  "globalTo": 0,
+                  "damage": 0,
+                  "recover": 0,
+                  "draw": 0,
+                  "playerValue": 0,
+                  "targetValue": 0,
+                  "enabled": {
+                    "owner": true,
+                    "loser": true,
+                    "third": true
+                  },
+                  "groups": {
+                    "owner": [
+                      [
+                        "loser"
+                      ],
+                      [
+                        "third"
+                      ]
+                    ],
+                    "loser": [
+                      [
+                        "owner"
+                      ],
+                      [
+                        "third"
+                      ]
+                    ],
+                    "third": [
+                      [
+                        "owner"
+                      ],
+                      [
+                        "loser"
+                      ]
+                    ]
+                  },
+                  "denied": {
+                    "owner:owner": true,
+                    "owner:loser": false,
+                    "owner:third": false,
+                    "loser:owner": false,
+                    "loser:loser": true,
+                    "loser:third": false,
+                    "third:owner": false,
+                    "third:loser": false,
+                    "third:third": true
+                  },
+                  "responseDenied": {
+                    "owner:owner": true,
+                    "owner:loser": false,
+                    "owner:third": false,
+                    "loser:owner": false,
+                    "loser:loser": true,
+                    "loser:third": false,
+                    "third:owner": false,
+                    "third:loser": false,
+                    "third:third": true
+                  },
+                  "rescueEnabled": false,
+                  "discardable": true
+                },
+                {
+                  "id": "c3",
+                  "name": "sha",
+                  "type": "basic",
+                  "suit": "spade",
+                  "color": "black",
+                  "nature": "",
+                  "range": 1,
+                  "globalFrom": 0,
+                  "globalTo": 0,
+                  "damage": 0,
+                  "recover": 0,
+                  "draw": 0,
+                  "playerValue": 0,
+                  "targetValue": 0,
+                  "enabled": {
+                    "owner": true,
+                    "loser": true,
+                    "third": true
+                  },
+                  "groups": {
+                    "owner": [
+                      [
+                        "loser"
+                      ],
+                      [
+                        "third"
+                      ]
+                    ],
+                    "loser": [
+                      [
+                        "owner"
+                      ],
+                      [
+                        "third"
+                      ]
+                    ],
+                    "third": [
+                      [
+                        "owner"
+                      ],
+                      [
+                        "loser"
+                      ]
+                    ]
+                  },
+                  "denied": {
+                    "owner:owner": true,
+                    "owner:loser": false,
+                    "owner:third": false,
+                    "loser:owner": false,
+                    "loser:loser": true,
+                    "loser:third": false,
+                    "third:owner": false,
+                    "third:loser": false,
+                    "third:third": true
+                  },
+                  "responseDenied": {
+                    "owner:owner": true,
+                    "owner:loser": false,
+                    "owner:third": false,
+                    "loser:owner": false,
+                    "loser:loser": true,
+                    "loser:third": false,
+                    "third:owner": false,
+                    "third:loser": false,
+                    "third:third": true
+                  },
+                  "rescueEnabled": false,
+                  "discardable": true
+                }
+              ],
+              "players": [
+                {
+                  "id": "owner",
+                  "alive": true,
+                  "hp": 3,
+                  "maxHp": 3,
+                  "armor": 0,
+                  "mark": false,
+                  "used": false,
+                  "drunk": 0,
+                  "linked": false,
+                  "attitude": 1,
+                  "known": [],
+                  "unknown": 0,
+                  "equips": [],
+                  "judges": [],
+                  "baseRange": 1,
+                  "limitExtra": 0,
+                  "equipDisabled": [],
+                  "noResponse": {}
+                },
+                {
+                  "id": "loser",
+                  "alive": true,
+                  "hp": 3,
+                  "maxHp": 3,
+                  "armor": 0,
+                  "mark": false,
+                  "used": false,
+                  "drunk": 0,
+                  "linked": false,
+                  "attitude": 1,
+                  "known": [],
+                  "unknown": 0,
+                  "equips": [],
+                  "judges": [],
+                  "baseRange": 1,
+                  "limitExtra": 0,
+                  "equipDisabled": [],
+                  "noResponse": {}
+                },
+                {
+                  "id": "third",
+                  "alive": true,
+                  "hp": 3,
+                  "maxHp": 3,
+                  "armor": 0,
+                  "mark": false,
+                  "used": false,
+                  "drunk": 0,
+                  "linked": false,
+                  "attitude": -1,
+                  "known": [],
+                  "unknown": 0,
+                  "equips": [],
+                  "judges": [],
+                  "baseRange": 1,
+                  "limitExtra": 0,
+                  "equipDisabled": [],
+                  "noResponse": {}
+                }
+              ],
+              "quota": {
+                "damage": true,
+                "remove": true,
+                "puppetSha": false,
+                "normalSha": 0,
+                "normalJiu": 0
+              },
+              "distances": {
+                "owner:owner": 1,
+                "owner:loser": 1,
+                "owner:third": 1,
+                "loser:owner": 1,
+                "loser:loser": 1,
+                "loser:third": 1,
+                "third:owner": 1,
+                "third:loser": 1,
+                "third:third": 1
+              },
+              "initialEquips": {
+                "owner": [],
+                "loser": [],
+                "third": []
+              },
+              "roots": [
+                {
+                  "kind": "normal",
+                  "card": "c1",
+                  "user": "owner",
+                  "targets": [
+                    "owner"
+                  ]
+                },
+                {
+                  "kind": "normal",
+                  "card": "c2",
+                  "user": "owner",
+                  "targets": [
+                    "loser"
+                  ]
+                },
+                {
+                  "kind": "normal",
+                  "card": "c2",
+                  "user": "owner",
+                  "targets": [
+                    "third"
+                  ]
+                },
+                {
+                  "kind": "normal",
+                  "card": "c3",
+                  "user": "owner",
+                  "targets": [
+                    "loser"
+                  ]
+                },
+                {
+                  "kind": "normal",
+                  "card": "c3",
+                  "user": "owner",
+                  "targets": [
+                    "third"
+                  ]
+                }
+              ],
+              "shaLimit": 1,
+              "chainOrder": [
+                "owner",
+                "loser",
+                "third"
+              ]
+            },
+            "decision": {
+              "source": "benchmark-winner",
+              "firstAction": {
+                "kind": "normal",
+                "card": "c1",
+                "user": "owner",
+                "targets": [
+                  "owner"
+                ]
+              },
+              "score": 1,
+              "continuation": [],
+              "ranked": [
+                {
+                  "action": {
+                    "kind": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "owner"
+                    ]
+                  },
+                  "recommended": true
+                },
+                {
+                  "action": {
+                    "kind": "normal",
+                    "card": "c2",
+                    "user": "owner",
+                    "targets": [
+                      "loser"
+                    ]
+                  },
+                  "recommended": false
+                },
+                {
+                  "action": {
+                    "kind": "normal",
+                    "card": "c2",
+                    "user": "owner",
+                    "targets": [
+                      "third"
+                    ]
+                  },
+                  "recommended": false
+                },
+                {
+                  "action": {
+                    "kind": "normal",
+                    "card": "c3",
+                    "user": "owner",
+                    "targets": [
+                      "loser"
+                    ]
+                  },
+                  "recommended": false
+                },
+                {
+                  "action": {
+                    "kind": "normal",
+                    "card": "c3",
+                    "user": "owner",
+                    "targets": [
+                      "third"
+                    ]
+                  },
+                  "recommended": false
+                }
+              ],
+              "coverage": {
+                "roots": 5
+              },
+              "observation": {
+                "status": "choice",
+                "owner": "owner",
+                "actor": "owner",
+                "turn": 1,
+                "phase": "play",
+                "request": {
+                  "id": 1,
+                  "kind": "play",
+                  "actor": "owner"
+                },
+                "legalActions": [
+                  {
+                    "type": "play",
+                    "mode": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "owner"
+                    ]
+                  },
+                  {
+                    "type": "play",
+                    "mode": "normal",
+                    "card": "c2",
+                    "user": "owner",
+                    "targets": [
+                      "loser"
+                    ]
+                  },
+                  {
+                    "type": "play",
+                    "mode": "normal",
+                    "card": "c2",
+                    "user": "owner",
+                    "targets": [
+                      "third"
+                    ]
+                  },
+                  {
+                    "type": "play",
+                    "mode": "normal",
+                    "card": "c3",
+                    "user": "owner",
+                    "targets": [
+                      "loser"
+                    ]
+                  },
+                  {
+                    "type": "play",
+                    "mode": "normal",
+                    "card": "c3",
+                    "user": "owner",
+                    "targets": [
+                      "third"
+                    ]
+                  },
+                  {
+                    "type": "endPlay"
+                  }
+                ],
+                "ownerHand": [
+                  {
+                    "id": "c1",
+                    "name": "jiu",
+                    "suit": "spade",
+                    "rank": 7
+                  },
+                  {
+                    "id": "c2",
+                    "name": "sha",
+                    "suit": "spade",
+                    "rank": 7
+                  },
+                  {
+                    "id": "c3",
+                    "name": "sha",
+                    "suit": "spade",
+                    "rank": 7
+                  }
+                ],
+                "players": [
+                  {
+                    "id": "owner",
+                    "team": "ally",
+                    "sex": "none",
+                    "hp": 3,
+                    "maxHp": 3,
+                    "alive": true,
+                    "handCount": 3,
+                    "equipment": {},
+                    "judgments": [],
+                    "mark": false,
+                    "linked": false,
+                    "armor": 0,
+                    "wine": 0
+                  },
+                  {
+                    "id": "loser",
+                    "team": "ally",
+                    "sex": "none",
+                    "hp": 3,
+                    "maxHp": 3,
+                    "alive": true,
+                    "handCount": 0,
+                    "equipment": {},
+                    "judgments": [],
+                    "mark": false,
+                    "linked": false,
+                    "armor": 0,
+                    "wine": 0
+                  },
+                  {
+                    "id": "third",
+                    "team": "enemy",
+                    "sex": "none",
+                    "hp": 3,
+                    "maxHp": 3,
+                    "alive": true,
+                    "handCount": 0,
+                    "equipment": {},
+                    "judgments": [],
+                    "mark": false,
+                    "linked": false,
+                    "armor": 0,
+                    "wine": 0
+                  }
+                ],
+                "quotas": {
+                  "puppetSha": false,
+                  "shishengDamage": true,
+                  "shishengRemove": true,
+                  "normalSha": 0,
+                  "normalJiu": 0,
+                  "usedSources": []
+                },
+                "events": []
+              }
+            }
+          },
+          "choice": {
+            "kind": "normal",
+            "bool": true,
+            "cards": [
+              "c1"
+            ],
+            "targets": [
+              "owner"
+            ]
+          }
+        },
+        {
+          "view": {
+            "snapshot": {
+              "owner": "owner",
+              "hand": [
+                {
+                  "id": "c2",
+                  "name": "sha",
+                  "type": "basic",
+                  "suit": "spade",
+                  "color": "black",
+                  "nature": "",
+                  "range": 1,
+                  "globalFrom": 0,
+                  "globalTo": 0,
+                  "damage": 0,
+                  "recover": 0,
+                  "draw": 0,
+                  "playerValue": 0,
+                  "targetValue": 0,
+                  "enabled": {
+                    "owner": true,
+                    "loser": true,
+                    "third": true
+                  },
+                  "groups": {
+                    "owner": [
+                      [
+                        "loser"
+                      ],
+                      [
+                        "third"
+                      ]
+                    ],
+                    "loser": [
+                      [
+                        "owner"
+                      ],
+                      [
+                        "third"
+                      ]
+                    ],
+                    "third": [
+                      [
+                        "owner"
+                      ],
+                      [
+                        "loser"
+                      ]
+                    ]
+                  },
+                  "denied": {
+                    "owner:owner": true,
+                    "owner:loser": false,
+                    "owner:third": false,
+                    "loser:owner": false,
+                    "loser:loser": true,
+                    "loser:third": false,
+                    "third:owner": false,
+                    "third:loser": false,
+                    "third:third": true
+                  },
+                  "responseDenied": {
+                    "owner:owner": true,
+                    "owner:loser": false,
+                    "owner:third": false,
+                    "loser:owner": false,
+                    "loser:loser": true,
+                    "loser:third": false,
+                    "third:owner": false,
+                    "third:loser": false,
+                    "third:third": true
+                  },
+                  "rescueEnabled": false,
+                  "discardable": true
+                },
+                {
+                  "id": "c3",
+                  "name": "sha",
+                  "type": "basic",
+                  "suit": "spade",
+                  "color": "black",
+                  "nature": "",
+                  "range": 1,
+                  "globalFrom": 0,
+                  "globalTo": 0,
+                  "damage": 0,
+                  "recover": 0,
+                  "draw": 0,
+                  "playerValue": 0,
+                  "targetValue": 0,
+                  "enabled": {
+                    "owner": true,
+                    "loser": true,
+                    "third": true
+                  },
+                  "groups": {
+                    "owner": [
+                      [
+                        "loser"
+                      ],
+                      [
+                        "third"
+                      ]
+                    ],
+                    "loser": [
+                      [
+                        "owner"
+                      ],
+                      [
+                        "third"
+                      ]
+                    ],
+                    "third": [
+                      [
+                        "owner"
+                      ],
+                      [
+                        "loser"
+                      ]
+                    ]
+                  },
+                  "denied": {
+                    "owner:owner": true,
+                    "owner:loser": false,
+                    "owner:third": false,
+                    "loser:owner": false,
+                    "loser:loser": true,
+                    "loser:third": false,
+                    "third:owner": false,
+                    "third:loser": false,
+                    "third:third": true
+                  },
+                  "responseDenied": {
+                    "owner:owner": true,
+                    "owner:loser": false,
+                    "owner:third": false,
+                    "loser:owner": false,
+                    "loser:loser": true,
+                    "loser:third": false,
+                    "third:owner": false,
+                    "third:loser": false,
+                    "third:third": true
+                  },
+                  "rescueEnabled": false,
+                  "discardable": true
+                }
+              ],
+              "players": [
+                {
+                  "id": "owner",
+                  "alive": true,
+                  "hp": 3,
+                  "maxHp": 3,
+                  "armor": 0,
+                  "mark": false,
+                  "used": false,
+                  "drunk": 1,
+                  "linked": false,
+                  "attitude": 1,
+                  "known": [],
+                  "unknown": 0,
+                  "equips": [],
+                  "judges": [],
+                  "baseRange": 1,
+                  "limitExtra": 0,
+                  "equipDisabled": [],
+                  "noResponse": {}
+                },
+                {
+                  "id": "loser",
+                  "alive": true,
+                  "hp": 3,
+                  "maxHp": 3,
+                  "armor": 0,
+                  "mark": false,
+                  "used": false,
+                  "drunk": 0,
+                  "linked": false,
+                  "attitude": 1,
+                  "known": [],
+                  "unknown": 0,
+                  "equips": [],
+                  "judges": [],
+                  "baseRange": 1,
+                  "limitExtra": 0,
+                  "equipDisabled": [],
+                  "noResponse": {}
+                },
+                {
+                  "id": "third",
+                  "alive": true,
+                  "hp": 3,
+                  "maxHp": 3,
+                  "armor": 0,
+                  "mark": false,
+                  "used": false,
+                  "drunk": 0,
+                  "linked": false,
+                  "attitude": -1,
+                  "known": [],
+                  "unknown": 0,
+                  "equips": [],
+                  "judges": [],
+                  "baseRange": 1,
+                  "limitExtra": 0,
+                  "equipDisabled": [],
+                  "noResponse": {}
+                }
+              ],
+              "quota": {
+                "damage": true,
+                "remove": true,
+                "puppetSha": false,
+                "normalSha": 0,
+                "normalJiu": 1
+              },
+              "distances": {
+                "owner:owner": 1,
+                "owner:loser": 1,
+                "owner:third": 1,
+                "loser:owner": 1,
+                "loser:loser": 1,
+                "loser:third": 1,
+                "third:owner": 1,
+                "third:loser": 1,
+                "third:third": 1
+              },
+              "initialEquips": {
+                "owner": [],
+                "loser": [],
+                "third": []
+              },
+              "roots": [
+                {
+                  "kind": "normal",
+                  "card": "c2",
+                  "user": "owner",
+                  "targets": [
+                    "loser"
+                  ]
+                },
+                {
+                  "kind": "normal",
+                  "card": "c2",
+                  "user": "owner",
+                  "targets": [
+                    "third"
+                  ]
+                },
+                {
+                  "kind": "normal",
+                  "card": "c3",
+                  "user": "owner",
+                  "targets": [
+                    "loser"
+                  ]
+                },
+                {
+                  "kind": "normal",
+                  "card": "c3",
+                  "user": "owner",
+                  "targets": [
+                    "third"
+                  ]
+                }
+              ],
+              "shaLimit": 1,
+              "chainOrder": [
+                "owner",
+                "loser",
+                "third"
+              ]
+            },
+            "decision": {
+              "source": "benchmark-winner",
+              "firstAction": {
+                "kind": "normal",
+                "card": "c2",
+                "user": "owner",
+                "targets": [
+                  "third"
+                ]
+              },
+              "score": 1,
+              "continuation": [],
+              "ranked": [
+                {
+                  "action": {
+                    "kind": "normal",
+                    "card": "c2",
+                    "user": "owner",
+                    "targets": [
+                      "third"
+                    ]
+                  },
+                  "recommended": true
+                },
+                {
+                  "action": {
+                    "kind": "normal",
+                    "card": "c2",
+                    "user": "owner",
+                    "targets": [
+                      "loser"
+                    ]
+                  },
+                  "recommended": false
+                },
+                {
+                  "action": {
+                    "kind": "normal",
+                    "card": "c3",
+                    "user": "owner",
+                    "targets": [
+                      "loser"
+                    ]
+                  },
+                  "recommended": false
+                },
+                {
+                  "action": {
+                    "kind": "normal",
+                    "card": "c3",
+                    "user": "owner",
+                    "targets": [
+                      "third"
+                    ]
+                  },
+                  "recommended": false
+                }
+              ],
+              "coverage": {
+                "roots": 4
+              },
+              "observation": {
+                "status": "choice",
+                "owner": "owner",
+                "actor": "owner",
+                "turn": 1,
+                "phase": "play",
+                "request": {
+                  "id": 1,
+                  "kind": "play",
+                  "actor": "owner"
+                },
+                "legalActions": [
+                  {
+                    "type": "play",
+                    "mode": "normal",
+                    "card": "c2",
+                    "user": "owner",
+                    "targets": [
+                      "loser"
+                    ]
+                  },
+                  {
+                    "type": "play",
+                    "mode": "normal",
+                    "card": "c2",
+                    "user": "owner",
+                    "targets": [
+                      "third"
+                    ]
+                  },
+                  {
+                    "type": "play",
+                    "mode": "normal",
+                    "card": "c3",
+                    "user": "owner",
+                    "targets": [
+                      "loser"
+                    ]
+                  },
+                  {
+                    "type": "play",
+                    "mode": "normal",
+                    "card": "c3",
+                    "user": "owner",
+                    "targets": [
+                      "third"
+                    ]
+                  },
+                  {
+                    "type": "endPlay"
+                  }
+                ],
+                "ownerHand": [
+                  {
+                    "id": "c2",
+                    "name": "sha",
+                    "suit": "spade",
+                    "rank": 7
+                  },
+                  {
+                    "id": "c3",
+                    "name": "sha",
+                    "suit": "spade",
+                    "rank": 7
+                  }
+                ],
+                "players": [
+                  {
+                    "id": "owner",
+                    "team": "ally",
+                    "sex": "none",
+                    "hp": 3,
+                    "maxHp": 3,
+                    "alive": true,
+                    "handCount": 2,
+                    "equipment": {},
+                    "judgments": [],
+                    "mark": false,
+                    "linked": false,
+                    "armor": 0,
+                    "wine": 1
+                  },
+                  {
+                    "id": "loser",
+                    "team": "ally",
+                    "sex": "none",
+                    "hp": 3,
+                    "maxHp": 3,
+                    "alive": true,
+                    "handCount": 0,
+                    "equipment": {},
+                    "judgments": [],
+                    "mark": false,
+                    "linked": false,
+                    "armor": 0,
+                    "wine": 0
+                  },
+                  {
+                    "id": "third",
+                    "team": "enemy",
+                    "sex": "none",
+                    "hp": 3,
+                    "maxHp": 3,
+                    "alive": true,
+                    "handCount": 0,
+                    "equipment": {},
+                    "judgments": [],
+                    "mark": false,
+                    "linked": false,
+                    "armor": 0,
+                    "wine": 0
+                  }
+                ],
+                "quotas": {
+                  "puppetSha": false,
+                  "shishengDamage": true,
+                  "shishengRemove": true,
+                  "normalSha": 0,
+                  "normalJiu": 1,
+                  "usedSources": []
+                },
+                "events": []
+              }
+            }
+          },
+          "choice": {
+            "kind": "normal",
+            "bool": true,
+            "cards": [
+              "c2"
+            ],
+            "targets": [
+              "third"
+            ]
+          }
+        },
+        {
+          "view": {
+            "snapshot": {
+              "owner": "owner",
+              "hand": [
+                {
+                  "id": "c3",
+                  "name": "sha",
+                  "type": "basic",
+                  "suit": "spade",
+                  "color": "black",
+                  "nature": "",
+                  "range": 1,
+                  "globalFrom": 0,
+                  "globalTo": 0,
+                  "damage": 0,
+                  "recover": 0,
+                  "draw": 0,
+                  "playerValue": 0,
+                  "targetValue": 0,
+                  "enabled": {
+                    "owner": true,
+                    "loser": true,
+                    "third": true
+                  },
+                  "groups": {
+                    "owner": [
+                      [
+                        "loser"
+                      ],
+                      [
+                        "third"
+                      ]
+                    ],
+                    "loser": [
+                      [
+                        "owner"
+                      ],
+                      [
+                        "third"
+                      ]
+                    ],
+                    "third": [
+                      [
+                        "owner"
+                      ],
+                      [
+                        "loser"
+                      ]
+                    ]
+                  },
+                  "denied": {
+                    "owner:owner": true,
+                    "owner:loser": false,
+                    "owner:third": false,
+                    "loser:owner": false,
+                    "loser:loser": true,
+                    "loser:third": false,
+                    "third:owner": false,
+                    "third:loser": false,
+                    "third:third": true
+                  },
+                  "responseDenied": {
+                    "owner:owner": true,
+                    "owner:loser": false,
+                    "owner:third": false,
+                    "loser:owner": false,
+                    "loser:loser": true,
+                    "loser:third": false,
+                    "third:owner": false,
+                    "third:loser": false,
+                    "third:third": true
+                  },
+                  "rescueEnabled": false,
+                  "discardable": true
+                }
+              ],
+              "players": [
+                {
+                  "id": "owner",
+                  "alive": true,
+                  "hp": 3,
+                  "maxHp": 3,
+                  "armor": 0,
+                  "mark": false,
+                  "used": false,
+                  "drunk": 0,
+                  "linked": false,
+                  "attitude": 1,
+                  "known": [],
+                  "unknown": 0,
+                  "equips": [],
+                  "judges": [],
+                  "baseRange": 1,
+                  "limitExtra": 0,
+                  "equipDisabled": [],
+                  "noResponse": {}
+                },
+                {
+                  "id": "loser",
+                  "alive": true,
+                  "hp": 3,
+                  "maxHp": 3,
+                  "armor": 0,
+                  "mark": false,
+                  "used": false,
+                  "drunk": 0,
+                  "linked": false,
+                  "attitude": 1,
+                  "known": [],
+                  "unknown": 0,
+                  "equips": [],
+                  "judges": [],
+                  "baseRange": 1,
+                  "limitExtra": 0,
+                  "equipDisabled": [],
+                  "noResponse": {}
+                },
+                {
+                  "id": "third",
+                  "alive": true,
+                  "hp": 3,
+                  "maxHp": 3,
+                  "armor": 0,
+                  "mark": false,
+                  "used": false,
+                  "drunk": 0,
+                  "linked": false,
+                  "attitude": -1,
+                  "known": [],
+                  "unknown": 0,
+                  "equips": [],
+                  "judges": [],
+                  "baseRange": 1,
+                  "limitExtra": 0,
+                  "equipDisabled": [],
+                  "noResponse": {}
+                }
+              ],
+              "quota": {
+                "damage": true,
+                "remove": true,
+                "puppetSha": false,
+                "normalSha": 1,
+                "normalJiu": 1
+              },
+              "distances": {
+                "owner:owner": 1,
+                "owner:loser": 1,
+                "owner:third": 1,
+                "loser:owner": 1,
+                "loser:loser": 1,
+                "loser:third": 1,
+                "third:owner": 1,
+                "third:loser": 1,
+                "third:third": 1
+              },
+              "initialEquips": {
+                "owner": [],
+                "loser": [],
+                "third": []
+              },
+              "roots": [],
+              "shaLimit": 1,
+              "chainOrder": [
+                "owner",
+                "loser",
+                "third"
+              ]
+            },
+            "decision": {
+              "source": "benchmark-winner",
+              "firstAction": {
+                "kind": "stop",
+                "card": null,
+                "user": "owner",
+                "targets": []
+              },
+              "score": 0,
+              "continuation": [],
+              "ranked": [],
+              "coverage": {
+                "roots": 0
+              },
+              "observation": {
+                "status": "choice",
+                "owner": "owner",
+                "actor": "owner",
+                "turn": 1,
+                "phase": "play",
+                "request": {
+                  "id": 1,
+                  "kind": "play",
+                  "actor": "owner"
+                },
+                "legalActions": [
+                  {
+                    "type": "endPlay"
+                  }
+                ],
+                "ownerHand": [
+                  {
+                    "id": "c3",
+                    "name": "sha",
+                    "suit": "spade",
+                    "rank": 7
+                  }
+                ],
+                "players": [
+                  {
+                    "id": "owner",
+                    "team": "ally",
+                    "sex": "none",
+                    "hp": 3,
+                    "maxHp": 3,
+                    "alive": true,
+                    "handCount": 1,
+                    "equipment": {},
+                    "judgments": [],
+                    "mark": false,
+                    "linked": false,
+                    "armor": 0,
+                    "wine": 0
+                  },
+                  {
+                    "id": "loser",
+                    "team": "ally",
+                    "sex": "none",
+                    "hp": 3,
+                    "maxHp": 3,
+                    "alive": true,
+                    "handCount": 0,
+                    "equipment": {},
+                    "judgments": [],
+                    "mark": false,
+                    "linked": false,
+                    "armor": 0,
+                    "wine": 0
+                  },
+                  {
+                    "id": "third",
+                    "team": "enemy",
+                    "sex": "none",
+                    "hp": 3,
+                    "maxHp": 3,
+                    "alive": true,
+                    "handCount": 0,
+                    "equipment": {},
+                    "judgments": [],
+                    "mark": false,
+                    "linked": false,
+                    "armor": 0,
+                    "wine": 0
+                  }
+                ],
+                "quotas": {
+                  "puppetSha": false,
+                  "shishengDamage": true,
+                  "shishengRemove": true,
+                  "normalSha": 1,
+                  "normalJiu": 1,
+                  "usedSources": []
+                },
+                "events": []
+              }
+            }
+          },
+          "choice": {
+            "kind": "stop",
+            "bool": false,
+            "cards": [],
+            "targets": []
+          }
+        }
+      ]
+    },
+    {
+      "scenario": "fire-chain",
+      "steps": [
+        {
+          "view": {
+            "snapshot": {
+              "owner": "owner",
+              "hand": [
+                {
+                  "id": "c1",
+                  "name": "tiesuo",
+                  "type": "trick",
+                  "suit": "spade",
+                  "color": "black",
+                  "nature": "",
+                  "range": 1,
+                  "globalFrom": 0,
+                  "globalTo": 0,
+                  "damage": 0,
+                  "recover": 0,
+                  "draw": 0,
+                  "playerValue": 0,
+                  "targetValue": 0,
+                  "enabled": {
+                    "owner": true,
+                    "loser": true,
+                    "third": true
+                  },
+                  "groups": {
+                    "owner": [
+                      [
+                        "owner"
+                      ],
+                      [
+                        "owner",
+                        "loser"
+                      ],
+                      [
+                        "owner",
+                        "third"
+                      ],
+                      [
+                        "loser"
+                      ],
+                      [
+                        "loser",
+                        "owner"
+                      ],
+                      [
+                        "loser",
+                        "third"
+                      ],
+                      [
+                        "third"
+                      ],
+                      [
+                        "third",
+                        "owner"
+                      ],
+                      [
+                        "third",
+                        "loser"
+                      ]
+                    ],
+                    "loser": [
+                      [
+                        "owner"
+                      ],
+                      [
+                        "owner",
+                        "loser"
+                      ],
+                      [
+                        "owner",
+                        "third"
+                      ],
+                      [
+                        "loser"
+                      ],
+                      [
+                        "loser",
+                        "owner"
+                      ],
+                      [
+                        "loser",
+                        "third"
+                      ],
+                      [
+                        "third"
+                      ],
+                      [
+                        "third",
+                        "owner"
+                      ],
+                      [
+                        "third",
+                        "loser"
+                      ]
+                    ],
+                    "third": [
+                      [
+                        "owner"
+                      ],
+                      [
+                        "owner",
+                        "loser"
+                      ],
+                      [
+                        "owner",
+                        "third"
+                      ],
+                      [
+                        "loser"
+                      ],
+                      [
+                        "loser",
+                        "owner"
+                      ],
+                      [
+                        "loser",
+                        "third"
+                      ],
+                      [
+                        "third"
+                      ],
+                      [
+                        "third",
+                        "owner"
+                      ],
+                      [
+                        "third",
+                        "loser"
+                      ]
+                    ]
+                  },
+                  "denied": {},
+                  "responseDenied": {},
+                  "rescueEnabled": false,
+                  "discardable": true
+                },
+                {
+                  "id": "c2",
+                  "name": "sha",
+                  "type": "basic",
+                  "suit": "spade",
+                  "color": "black",
+                  "nature": "fire",
+                  "range": 1,
+                  "globalFrom": 0,
+                  "globalTo": 0,
+                  "damage": 0,
+                  "recover": 0,
+                  "draw": 0,
+                  "playerValue": 0,
+                  "targetValue": 0,
+                  "enabled": {
+                    "owner": true,
+                    "loser": true,
+                    "third": true
+                  },
+                  "groups": {
+                    "owner": [
+                      [
+                        "loser"
+                      ],
+                      [
+                        "third"
+                      ]
+                    ],
+                    "loser": [
+                      [
+                        "owner"
+                      ],
+                      [
+                        "third"
+                      ]
+                    ],
+                    "third": [
+                      [
+                        "owner"
+                      ],
+                      [
+                        "loser"
+                      ]
+                    ]
+                  },
+                  "denied": {
+                    "owner:owner": true,
+                    "owner:loser": false,
+                    "owner:third": false,
+                    "loser:owner": false,
+                    "loser:loser": true,
+                    "loser:third": false,
+                    "third:owner": false,
+                    "third:loser": false,
+                    "third:third": true
+                  },
+                  "responseDenied": {
+                    "owner:owner": true,
+                    "owner:loser": false,
+                    "owner:third": false,
+                    "loser:owner": false,
+                    "loser:loser": true,
+                    "loser:third": false,
+                    "third:owner": false,
+                    "third:loser": false,
+                    "third:third": true
+                  },
+                  "rescueEnabled": false,
+                  "discardable": true
+                }
+              ],
+              "players": [
+                {
+                  "id": "owner",
+                  "alive": true,
+                  "hp": 3,
+                  "maxHp": 3,
+                  "armor": 0,
+                  "mark": false,
+                  "used": false,
+                  "drunk": 0,
+                  "linked": false,
+                  "attitude": 1,
+                  "known": [],
+                  "unknown": 0,
+                  "equips": [],
+                  "judges": [],
+                  "baseRange": 1,
+                  "limitExtra": 0,
+                  "equipDisabled": [],
+                  "noResponse": {}
+                },
+                {
+                  "id": "loser",
+                  "alive": true,
+                  "hp": 3,
+                  "maxHp": 3,
+                  "armor": 0,
+                  "mark": false,
+                  "used": false,
+                  "drunk": 0,
+                  "linked": true,
+                  "attitude": 1,
+                  "known": [],
+                  "unknown": 0,
+                  "equips": [],
+                  "judges": [],
+                  "baseRange": 1,
+                  "limitExtra": 0,
+                  "equipDisabled": [],
+                  "noResponse": {}
+                },
+                {
+                  "id": "third",
+                  "alive": true,
+                  "hp": 3,
+                  "maxHp": 3,
+                  "armor": 0,
+                  "mark": false,
+                  "used": false,
+                  "drunk": 0,
+                  "linked": true,
+                  "attitude": -1,
+                  "known": [],
+                  "unknown": 0,
+                  "equips": [],
+                  "judges": [],
+                  "baseRange": 1,
+                  "limitExtra": 0,
+                  "equipDisabled": [],
+                  "noResponse": {}
+                }
+              ],
+              "quota": {
+                "damage": true,
+                "remove": true,
+                "puppetSha": false,
+                "normalSha": 0,
+                "normalJiu": 0
+              },
+              "distances": {
+                "owner:owner": 1,
+                "owner:loser": 1,
+                "owner:third": 1,
+                "loser:owner": 1,
+                "loser:loser": 1,
+                "loser:third": 1,
+                "third:owner": 1,
+                "third:loser": 1,
+                "third:third": 1
+              },
+              "initialEquips": {
+                "owner": [],
+                "loser": [],
+                "third": []
+              },
+              "roots": [
+                {
+                  "kind": "normal",
+                  "card": "c1",
+                  "user": "owner",
+                  "targets": [
+                    "owner"
+                  ]
+                },
+                {
+                  "kind": "normal",
+                  "card": "c1",
+                  "user": "owner",
+                  "targets": [
+                    "owner",
+                    "loser"
+                  ]
+                },
+                {
+                  "kind": "normal",
+                  "card": "c1",
+                  "user": "owner",
+                  "targets": [
+                    "owner",
+                    "third"
+                  ]
+                },
+                {
+                  "kind": "normal",
+                  "card": "c1",
+                  "user": "owner",
+                  "targets": [
+                    "loser"
+                  ]
+                },
+                {
+                  "kind": "normal",
+                  "card": "c1",
+                  "user": "owner",
+                  "targets": [
+                    "loser",
+                    "owner"
+                  ]
+                },
+                {
+                  "kind": "normal",
+                  "card": "c1",
+                  "user": "owner",
+                  "targets": [
+                    "loser",
+                    "third"
+                  ]
+                },
+                {
+                  "kind": "normal",
+                  "card": "c1",
+                  "user": "owner",
+                  "targets": [
+                    "third"
+                  ]
+                },
+                {
+                  "kind": "normal",
+                  "card": "c1",
+                  "user": "owner",
+                  "targets": [
+                    "third",
+                    "owner"
+                  ]
+                },
+                {
+                  "kind": "normal",
+                  "card": "c1",
+                  "user": "owner",
+                  "targets": [
+                    "third",
+                    "loser"
+                  ]
+                },
+                {
+                  "kind": "normal",
+                  "card": "c2",
+                  "user": "owner",
+                  "targets": [
+                    "loser"
+                  ]
+                },
+                {
+                  "kind": "normal",
+                  "card": "c2",
+                  "user": "owner",
+                  "targets": [
+                    "third"
+                  ]
+                }
+              ],
+              "shaLimit": 1,
+              "chainOrder": [
+                "owner",
+                "loser",
+                "third"
+              ]
+            },
+            "decision": {
+              "source": "benchmark-winner",
+              "firstAction": {
+                "kind": "normal",
+                "card": "c1",
+                "user": "owner",
+                "targets": [
+                  "owner",
+                  "loser"
+                ]
+              },
+              "score": 1,
+              "continuation": [],
+              "ranked": [
+                {
+                  "action": {
+                    "kind": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "owner",
+                      "loser"
+                    ]
+                  },
+                  "recommended": true
+                },
+                {
+                  "action": {
+                    "kind": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "owner"
+                    ]
+                  },
+                  "recommended": false
+                },
+                {
+                  "action": {
+                    "kind": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "owner",
+                      "third"
+                    ]
+                  },
+                  "recommended": false
+                },
+                {
+                  "action": {
+                    "kind": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "loser"
+                    ]
+                  },
+                  "recommended": false
+                },
+                {
+                  "action": {
+                    "kind": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "loser",
+                      "owner"
+                    ]
+                  },
+                  "recommended": false
+                },
+                {
+                  "action": {
+                    "kind": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "loser",
+                      "third"
+                    ]
+                  },
+                  "recommended": false
+                },
+                {
+                  "action": {
+                    "kind": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "third"
+                    ]
+                  },
+                  "recommended": false
+                },
+                {
+                  "action": {
+                    "kind": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "third",
+                      "owner"
+                    ]
+                  },
+                  "recommended": false
+                },
+                {
+                  "action": {
+                    "kind": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "third",
+                      "loser"
+                    ]
+                  },
+                  "recommended": false
+                },
+                {
+                  "action": {
+                    "kind": "normal",
+                    "card": "c2",
+                    "user": "owner",
+                    "targets": [
+                      "loser"
+                    ]
+                  },
+                  "recommended": false
+                },
+                {
+                  "action": {
+                    "kind": "normal",
+                    "card": "c2",
+                    "user": "owner",
+                    "targets": [
+                      "third"
+                    ]
+                  },
+                  "recommended": false
+                }
+              ],
+              "coverage": {
+                "roots": 11
+              },
+              "observation": {
+                "status": "choice",
+                "owner": "owner",
+                "actor": "owner",
+                "turn": 1,
+                "phase": "play",
+                "request": {
+                  "id": 1,
+                  "kind": "play",
+                  "actor": "owner"
+                },
+                "legalActions": [
+                  {
+                    "type": "play",
+                    "mode": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "owner"
+                    ]
+                  },
+                  {
+                    "type": "play",
+                    "mode": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "owner",
+                      "loser"
+                    ]
+                  },
+                  {
+                    "type": "play",
+                    "mode": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "owner",
+                      "third"
+                    ]
+                  },
+                  {
+                    "type": "play",
+                    "mode": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "loser"
+                    ]
+                  },
+                  {
+                    "type": "play",
+                    "mode": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "loser",
+                      "owner"
+                    ]
+                  },
+                  {
+                    "type": "play",
+                    "mode": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "loser",
+                      "third"
+                    ]
+                  },
+                  {
+                    "type": "play",
+                    "mode": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "third"
+                    ]
+                  },
+                  {
+                    "type": "play",
+                    "mode": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "third",
+                      "owner"
+                    ]
+                  },
+                  {
+                    "type": "play",
+                    "mode": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "third",
+                      "loser"
+                    ]
+                  },
+                  {
+                    "type": "play",
+                    "mode": "normal",
+                    "card": "c2",
+                    "user": "owner",
+                    "targets": [
+                      "loser"
+                    ]
+                  },
+                  {
+                    "type": "play",
+                    "mode": "normal",
+                    "card": "c2",
+                    "user": "owner",
+                    "targets": [
+                      "third"
+                    ]
+                  },
+                  {
+                    "type": "endPlay"
+                  }
+                ],
+                "ownerHand": [
+                  {
+                    "id": "c1",
+                    "name": "tiesuo",
+                    "suit": "spade",
+                    "rank": 7
+                  },
+                  {
+                    "id": "c2",
+                    "name": "sha",
+                    "suit": "spade",
+                    "rank": 7,
+                    "nature": "fire"
+                  }
+                ],
+                "players": [
+                  {
+                    "id": "owner",
+                    "team": "ally",
+                    "sex": "none",
+                    "hp": 3,
+                    "maxHp": 3,
+                    "alive": true,
+                    "handCount": 2,
+                    "equipment": {},
+                    "judgments": [],
+                    "mark": false,
+                    "linked": false,
+                    "armor": 0,
+                    "wine": 0
+                  },
+                  {
+                    "id": "loser",
+                    "team": "ally",
+                    "sex": "none",
+                    "hp": 3,
+                    "maxHp": 3,
+                    "alive": true,
+                    "handCount": 0,
+                    "equipment": {},
+                    "judgments": [],
+                    "mark": false,
+                    "linked": true,
+                    "armor": 0,
+                    "wine": 0
+                  },
+                  {
+                    "id": "third",
+                    "team": "enemy",
+                    "sex": "none",
+                    "hp": 3,
+                    "maxHp": 3,
+                    "alive": true,
+                    "handCount": 0,
+                    "equipment": {},
+                    "judgments": [],
+                    "mark": false,
+                    "linked": true,
+                    "armor": 0,
+                    "wine": 0
+                  }
+                ],
+                "quotas": {
+                  "puppetSha": false,
+                  "shishengDamage": true,
+                  "shishengRemove": true,
+                  "normalSha": 0,
+                  "normalJiu": 0,
+                  "usedSources": []
+                },
+                "events": []
+              }
+            }
+          },
+          "choice": {
+            "kind": "normal",
+            "bool": true,
+            "cards": [
+              "c1"
+            ],
+            "targets": [
+              "owner"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "scenario": "self-rescue",
+      "steps": [
+        {
+          "view": {
+            "snapshot": {
+              "owner": "owner",
+              "hand": [
+                {
+                  "id": "c1",
+                  "name": "tao",
+                  "type": "basic",
+                  "suit": "spade",
+                  "color": "black",
+                  "nature": "",
+                  "range": 1,
+                  "globalFrom": 0,
+                  "globalTo": 0,
+                  "damage": 0,
+                  "recover": 1,
+                  "draw": 0,
+                  "playerValue": 0,
+                  "targetValue": 0,
+                  "enabled": {
+                    "owner": true,
+                    "loser": true,
+                    "third": true
+                  },
+                  "groups": {
+                    "owner": [
+                      [
+                        "owner"
+                      ]
+                    ],
+                    "loser": [],
+                    "third": []
+                  },
+                  "denied": {},
+                  "responseDenied": {},
+                  "rescueEnabled": true,
+                  "discardable": true
+                },
+                {
+                  "id": "c2",
+                  "name": "sha",
+                  "type": "basic",
+                  "suit": "spade",
+                  "color": "black",
+                  "nature": "",
+                  "range": 1,
+                  "globalFrom": 0,
+                  "globalTo": 0,
+                  "damage": 0,
+                  "recover": 0,
+                  "draw": 0,
+                  "playerValue": 0,
+                  "targetValue": 0,
+                  "enabled": {
+                    "owner": true,
+                    "loser": true,
+                    "third": true
+                  },
+                  "groups": {
+                    "owner": [
+                      [
+                        "loser"
+                      ],
+                      [
+                        "third"
+                      ]
+                    ],
+                    "loser": [
+                      [
+                        "owner"
+                      ],
+                      [
+                        "third"
+                      ]
+                    ],
+                    "third": [
+                      [
+                        "owner"
+                      ],
+                      [
+                        "loser"
+                      ]
+                    ]
+                  },
+                  "denied": {
+                    "owner:owner": true,
+                    "owner:loser": false,
+                    "owner:third": false,
+                    "loser:owner": false,
+                    "loser:loser": true,
+                    "loser:third": false,
+                    "third:owner": false,
+                    "third:loser": false,
+                    "third:third": true
+                  },
+                  "responseDenied": {
+                    "owner:owner": true,
+                    "owner:loser": false,
+                    "owner:third": false,
+                    "loser:owner": false,
+                    "loser:loser": true,
+                    "loser:third": false,
+                    "third:owner": false,
+                    "third:loser": false,
+                    "third:third": true
+                  },
+                  "rescueEnabled": false,
+                  "discardable": true
+                }
+              ],
+              "players": [
+                {
+                  "id": "owner",
+                  "alive": true,
+                  "hp": 1,
+                  "maxHp": 3,
+                  "armor": 0,
+                  "mark": false,
+                  "used": false,
+                  "drunk": 0,
+                  "linked": false,
+                  "attitude": 1,
+                  "known": [],
+                  "unknown": 0,
+                  "equips": [],
+                  "judges": [],
+                  "baseRange": 1,
+                  "limitExtra": 0,
+                  "equipDisabled": [],
+                  "noResponse": {}
+                },
+                {
+                  "id": "loser",
+                  "alive": true,
+                  "hp": 3,
+                  "maxHp": 3,
+                  "armor": 0,
+                  "mark": false,
+                  "used": false,
+                  "drunk": 0,
+                  "linked": false,
+                  "attitude": 1,
+                  "known": [],
+                  "unknown": 0,
+                  "equips": [],
+                  "judges": [],
+                  "baseRange": 1,
+                  "limitExtra": 0,
+                  "equipDisabled": [],
+                  "noResponse": {}
+                },
+                {
+                  "id": "third",
+                  "alive": true,
+                  "hp": 3,
+                  "maxHp": 3,
+                  "armor": 0,
+                  "mark": false,
+                  "used": false,
+                  "drunk": 0,
+                  "linked": false,
+                  "attitude": -1,
+                  "known": [],
+                  "unknown": 0,
+                  "equips": [],
+                  "judges": [],
+                  "baseRange": 1,
+                  "limitExtra": 0,
+                  "equipDisabled": [],
+                  "noResponse": {}
+                }
+              ],
+              "quota": {
+                "damage": true,
+                "remove": true,
+                "puppetSha": false,
+                "normalSha": 0,
+                "normalJiu": 0
+              },
+              "distances": {
+                "owner:owner": 1,
+                "owner:loser": 1,
+                "owner:third": 1,
+                "loser:owner": 1,
+                "loser:loser": 1,
+                "loser:third": 1,
+                "third:owner": 1,
+                "third:loser": 1,
+                "third:third": 1
+              },
+              "initialEquips": {
+                "owner": [],
+                "loser": [],
+                "third": []
+              },
+              "roots": [
+                {
+                  "kind": "normal",
+                  "card": "c1",
+                  "user": "owner",
+                  "targets": [
+                    "owner"
+                  ]
+                },
+                {
+                  "kind": "normal",
+                  "card": "c2",
+                  "user": "owner",
+                  "targets": [
+                    "loser"
+                  ]
+                },
+                {
+                  "kind": "normal",
+                  "card": "c2",
+                  "user": "owner",
+                  "targets": [
+                    "third"
+                  ]
+                }
+              ],
+              "shaLimit": 1,
+              "chainOrder": [
+                "owner",
+                "loser",
+                "third"
+              ]
+            },
+            "decision": {
+              "source": "benchmark-winner",
+              "firstAction": {
+                "kind": "normal",
+                "card": "c1",
+                "user": "owner",
+                "targets": [
+                  "owner"
+                ]
+              },
+              "score": 1,
+              "continuation": [],
+              "ranked": [
+                {
+                  "action": {
+                    "kind": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "owner"
+                    ]
+                  },
+                  "recommended": true
+                },
+                {
+                  "action": {
+                    "kind": "normal",
+                    "card": "c2",
+                    "user": "owner",
+                    "targets": [
+                      "loser"
+                    ]
+                  },
+                  "recommended": false
+                },
+                {
+                  "action": {
+                    "kind": "normal",
+                    "card": "c2",
+                    "user": "owner",
+                    "targets": [
+                      "third"
+                    ]
+                  },
+                  "recommended": false
+                }
+              ],
+              "coverage": {
+                "roots": 3
+              },
+              "observation": {
+                "status": "choice",
+                "owner": "owner",
+                "actor": "owner",
+                "turn": 1,
+                "phase": "play",
+                "request": {
+                  "id": 1,
+                  "kind": "play",
+                  "actor": "owner"
+                },
+                "legalActions": [
+                  {
+                    "type": "play",
+                    "mode": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "owner"
+                    ]
+                  },
+                  {
+                    "type": "play",
+                    "mode": "normal",
+                    "card": "c2",
+                    "user": "owner",
+                    "targets": [
+                      "loser"
+                    ]
+                  },
+                  {
+                    "type": "play",
+                    "mode": "normal",
+                    "card": "c2",
+                    "user": "owner",
+                    "targets": [
+                      "third"
+                    ]
+                  },
+                  {
+                    "type": "endPlay"
+                  }
+                ],
+                "ownerHand": [
+                  {
+                    "id": "c1",
+                    "name": "tao",
+                    "suit": "spade",
+                    "rank": 7
+                  },
+                  {
+                    "id": "c2",
+                    "name": "sha",
+                    "suit": "spade",
+                    "rank": 7
+                  }
+                ],
+                "players": [
+                  {
+                    "id": "owner",
+                    "team": "ally",
+                    "sex": "none",
+                    "hp": 1,
+                    "maxHp": 3,
+                    "alive": true,
+                    "handCount": 2,
+                    "equipment": {},
+                    "judgments": [],
+                    "mark": false,
+                    "linked": false,
+                    "armor": 0,
+                    "wine": 0
+                  },
+                  {
+                    "id": "loser",
+                    "team": "ally",
+                    "sex": "none",
+                    "hp": 3,
+                    "maxHp": 3,
+                    "alive": true,
+                    "handCount": 0,
+                    "equipment": {},
+                    "judgments": [],
+                    "mark": false,
+                    "linked": false,
+                    "armor": 0,
+                    "wine": 0
+                  },
+                  {
+                    "id": "third",
+                    "team": "enemy",
+                    "sex": "none",
+                    "hp": 3,
+                    "maxHp": 3,
+                    "alive": true,
+                    "handCount": 0,
+                    "equipment": {},
+                    "judgments": [],
+                    "mark": false,
+                    "linked": false,
+                    "armor": 0,
+                    "wine": 0
+                  }
+                ],
+                "quotas": {
+                  "puppetSha": false,
+                  "shishengDamage": true,
+                  "shishengRemove": true,
+                  "normalSha": 0,
+                  "normalJiu": 0,
+                  "usedSources": []
+                },
+                "events": []
+              }
+            }
+          },
+          "choice": {
+            "kind": "normal",
+            "bool": true,
+            "cards": [
+              "c1"
+            ],
+            "targets": [
+              "owner"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "scenario": "ally-rescue",
+      "steps": [
+        {
+          "view": {
+            "snapshot": {
+              "owner": "owner",
+              "hand": [
+                {
+                  "id": "c1",
+                  "name": "tao",
+                  "type": "basic",
+                  "suit": "spade",
+                  "color": "black",
+                  "nature": "",
+                  "range": 1,
+                  "globalFrom": 0,
+                  "globalTo": 0,
+                  "damage": 0,
+                  "recover": 1,
+                  "draw": 0,
+                  "playerValue": 0,
+                  "targetValue": 0,
+                  "enabled": {
+                    "owner": true,
+                    "loser": true,
+                    "third": true
+                  },
+                  "groups": {
+                    "owner": [],
+                    "loser": [
+                      [
+                        "loser"
+                      ]
+                    ],
+                    "third": []
+                  },
+                  "denied": {},
+                  "responseDenied": {},
+                  "rescueEnabled": true,
+                  "discardable": true
+                },
+                {
+                  "id": "c2",
+                  "name": "sha",
+                  "type": "basic",
+                  "suit": "spade",
+                  "color": "black",
+                  "nature": "",
+                  "range": 1,
+                  "globalFrom": 0,
+                  "globalTo": 0,
+                  "damage": 0,
+                  "recover": 0,
+                  "draw": 0,
+                  "playerValue": 0,
+                  "targetValue": 0,
+                  "enabled": {
+                    "owner": true,
+                    "loser": true,
+                    "third": true
+                  },
+                  "groups": {
+                    "owner": [
+                      [
+                        "loser"
+                      ],
+                      [
+                        "third"
+                      ]
+                    ],
+                    "loser": [
+                      [
+                        "owner"
+                      ],
+                      [
+                        "third"
+                      ]
+                    ],
+                    "third": [
+                      [
+                        "owner"
+                      ],
+                      [
+                        "loser"
+                      ]
+                    ]
+                  },
+                  "denied": {
+                    "owner:owner": true,
+                    "owner:loser": false,
+                    "owner:third": false,
+                    "loser:owner": false,
+                    "loser:loser": true,
+                    "loser:third": false,
+                    "third:owner": false,
+                    "third:loser": false,
+                    "third:third": true
+                  },
+                  "responseDenied": {
+                    "owner:owner": true,
+                    "owner:loser": false,
+                    "owner:third": false,
+                    "loser:owner": false,
+                    "loser:loser": true,
+                    "loser:third": false,
+                    "third:owner": false,
+                    "third:loser": false,
+                    "third:third": true
+                  },
+                  "rescueEnabled": false,
+                  "discardable": true
+                }
+              ],
+              "players": [
+                {
+                  "id": "owner",
+                  "alive": true,
+                  "hp": 3,
+                  "maxHp": 3,
+                  "armor": 0,
+                  "mark": false,
+                  "used": false,
+                  "drunk": 0,
+                  "linked": false,
+                  "attitude": 1,
+                  "known": [],
+                  "unknown": 0,
+                  "equips": [],
+                  "judges": [],
+                  "baseRange": 1,
+                  "limitExtra": 0,
+                  "equipDisabled": [],
+                  "noResponse": {}
+                },
+                {
+                  "id": "loser",
+                  "alive": true,
+                  "hp": 1,
+                  "maxHp": 3,
+                  "armor": 0,
+                  "mark": true,
+                  "used": false,
+                  "drunk": 0,
+                  "linked": false,
+                  "attitude": 1,
+                  "known": [],
+                  "unknown": 0,
+                  "equips": [],
+                  "judges": [],
+                  "baseRange": 1,
+                  "limitExtra": 0,
+                  "equipDisabled": [],
+                  "noResponse": {}
+                },
+                {
+                  "id": "third",
+                  "alive": true,
+                  "hp": 3,
+                  "maxHp": 3,
+                  "armor": 0,
+                  "mark": false,
+                  "used": false,
+                  "drunk": 0,
+                  "linked": false,
+                  "attitude": -1,
+                  "known": [],
+                  "unknown": 0,
+                  "equips": [],
+                  "judges": [],
+                  "baseRange": 1,
+                  "limitExtra": 0,
+                  "equipDisabled": [],
+                  "noResponse": {}
+                }
+              ],
+              "quota": {
+                "damage": true,
+                "remove": true,
+                "puppetSha": false,
+                "normalSha": 0,
+                "normalJiu": 0
+              },
+              "distances": {
+                "owner:owner": 1,
+                "owner:loser": 1,
+                "owner:third": 1,
+                "loser:owner": 1,
+                "loser:loser": 1,
+                "loser:third": 1,
+                "third:owner": 1,
+                "third:loser": 1,
+                "third:third": 1
+              },
+              "initialEquips": {
+                "owner": [],
+                "loser": [],
+                "third": []
+              },
+              "roots": [
+                {
+                  "kind": "puppet",
+                  "card": "c1",
+                  "user": "loser",
+                  "targets": [
+                    "loser"
+                  ]
+                },
+                {
+                  "kind": "normal",
+                  "card": "c2",
+                  "user": "owner",
+                  "targets": [
+                    "loser"
+                  ]
+                },
+                {
+                  "kind": "normal",
+                  "card": "c2",
+                  "user": "owner",
+                  "targets": [
+                    "third"
+                  ]
+                },
+                {
+                  "kind": "puppet",
+                  "card": "c2",
+                  "user": "loser",
+                  "targets": [
+                    "owner"
+                  ]
+                },
+                {
+                  "kind": "puppet",
+                  "card": "c2",
+                  "user": "loser",
+                  "targets": [
+                    "third"
+                  ]
+                }
+              ],
+              "shaLimit": 1,
+              "chainOrder": [
+                "owner",
+                "loser",
+                "third"
+              ]
+            },
+            "decision": {
+              "source": "benchmark-winner",
+              "firstAction": {
+                "kind": "puppet",
+                "card": "c2",
+                "user": "loser",
+                "targets": [
+                  "third"
+                ]
+              },
+              "score": 1,
+              "continuation": [],
+              "ranked": [
+                {
+                  "action": {
+                    "kind": "puppet",
+                    "card": "c2",
+                    "user": "loser",
+                    "targets": [
+                      "third"
+                    ]
+                  },
+                  "recommended": true
+                },
+                {
+                  "action": {
+                    "kind": "puppet",
+                    "card": "c1",
+                    "user": "loser",
+                    "targets": [
+                      "loser"
+                    ]
+                  },
+                  "recommended": false
+                },
+                {
+                  "action": {
+                    "kind": "normal",
+                    "card": "c2",
+                    "user": "owner",
+                    "targets": [
+                      "loser"
+                    ]
+                  },
+                  "recommended": false
+                },
+                {
+                  "action": {
+                    "kind": "normal",
+                    "card": "c2",
+                    "user": "owner",
+                    "targets": [
+                      "third"
+                    ]
+                  },
+                  "recommended": false
+                },
+                {
+                  "action": {
+                    "kind": "puppet",
+                    "card": "c2",
+                    "user": "loser",
+                    "targets": [
+                      "owner"
+                    ]
+                  },
+                  "recommended": false
+                }
+              ],
+              "coverage": {
+                "roots": 5
+              },
+              "observation": {
+                "status": "choice",
+                "owner": "owner",
+                "actor": "owner",
+                "turn": 1,
+                "phase": "play",
+                "request": {
+                  "id": 1,
+                  "kind": "play",
+                  "actor": "owner"
+                },
+                "legalActions": [
+                  {
+                    "type": "play",
+                    "mode": "puppet",
+                    "card": "c1",
+                    "user": "loser",
+                    "targets": [
+                      "loser"
+                    ]
+                  },
+                  {
+                    "type": "play",
+                    "mode": "normal",
+                    "card": "c2",
+                    "user": "owner",
+                    "targets": [
+                      "loser"
+                    ]
+                  },
+                  {
+                    "type": "play",
+                    "mode": "normal",
+                    "card": "c2",
+                    "user": "owner",
+                    "targets": [
+                      "third"
+                    ]
+                  },
+                  {
+                    "type": "play",
+                    "mode": "puppet",
+                    "card": "c2",
+                    "user": "loser",
+                    "targets": [
+                      "owner"
+                    ]
+                  },
+                  {
+                    "type": "play",
+                    "mode": "puppet",
+                    "card": "c2",
+                    "user": "loser",
+                    "targets": [
+                      "third"
+                    ]
+                  },
+                  {
+                    "type": "endPlay"
+                  }
+                ],
+                "ownerHand": [
+                  {
+                    "id": "c1",
+                    "name": "tao",
+                    "suit": "spade",
+                    "rank": 7
+                  },
+                  {
+                    "id": "c2",
+                    "name": "sha",
+                    "suit": "spade",
+                    "rank": 7
+                  }
+                ],
+                "players": [
+                  {
+                    "id": "owner",
+                    "team": "ally",
+                    "sex": "none",
+                    "hp": 3,
+                    "maxHp": 3,
+                    "alive": true,
+                    "handCount": 2,
+                    "equipment": {},
+                    "judgments": [],
+                    "mark": false,
+                    "linked": false,
+                    "armor": 0,
+                    "wine": 0
+                  },
+                  {
+                    "id": "loser",
+                    "team": "ally",
+                    "sex": "none",
+                    "hp": 1,
+                    "maxHp": 3,
+                    "alive": true,
+                    "handCount": 0,
+                    "equipment": {},
+                    "judgments": [],
+                    "mark": true,
+                    "linked": false,
+                    "armor": 0,
+                    "wine": 0
+                  },
+                  {
+                    "id": "third",
+                    "team": "enemy",
+                    "sex": "none",
+                    "hp": 3,
+                    "maxHp": 3,
+                    "alive": true,
+                    "handCount": 0,
+                    "equipment": {},
+                    "judgments": [],
+                    "mark": false,
+                    "linked": false,
+                    "armor": 0,
+                    "wine": 0
+                  }
+                ],
+                "quotas": {
+                  "puppetSha": false,
+                  "shishengDamage": true,
+                  "shishengRemove": true,
+                  "normalSha": 0,
+                  "normalJiu": 0,
+                  "usedSources": []
+                },
+                "events": []
+              }
+            }
+          },
+          "choice": {
+            "kind": "puppet",
+            "cardSelected": true,
+            "userSelected": true,
+            "card": "c2",
+            "user": "loser",
+            "targets": [
+              "third"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "scenario": "identity-lord",
+      "steps": [
+        {
+          "view": {
+            "snapshot": {
+              "owner": "owner",
+              "hand": [
+                {
+                  "id": "c1",
+                  "name": "sha",
+                  "type": "basic",
+                  "suit": "spade",
+                  "color": "black",
+                  "nature": "",
+                  "range": 1,
+                  "globalFrom": 0,
+                  "globalTo": 0,
+                  "damage": 0,
+                  "recover": 0,
+                  "draw": 0,
+                  "playerValue": 0,
+                  "targetValue": 0,
+                  "enabled": {
+                    "owner": true,
+                    "loser": true,
+                    "third": true
+                  },
+                  "groups": {
+                    "owner": [
+                      [
+                        "loser"
+                      ],
+                      [
+                        "third"
+                      ]
+                    ],
+                    "loser": [
+                      [
+                        "owner"
+                      ],
+                      [
+                        "third"
+                      ]
+                    ],
+                    "third": [
+                      [
+                        "owner"
+                      ],
+                      [
+                        "loser"
+                      ]
+                    ]
+                  },
+                  "denied": {
+                    "owner:owner": true,
+                    "owner:loser": false,
+                    "owner:third": false,
+                    "loser:owner": false,
+                    "loser:loser": true,
+                    "loser:third": false,
+                    "third:owner": false,
+                    "third:loser": false,
+                    "third:third": true
+                  },
+                  "responseDenied": {
+                    "owner:owner": true,
+                    "owner:loser": false,
+                    "owner:third": false,
+                    "loser:owner": false,
+                    "loser:loser": true,
+                    "loser:third": false,
+                    "third:owner": false,
+                    "third:loser": false,
+                    "third:third": true
+                  },
+                  "rescueEnabled": false,
+                  "discardable": true
+                },
+                {
+                  "id": "c2",
+                  "name": "wuzhong",
+                  "type": "trick",
+                  "suit": "spade",
+                  "color": "black",
+                  "nature": "",
+                  "range": 1,
+                  "globalFrom": 0,
+                  "globalTo": 0,
+                  "damage": 0,
+                  "recover": 0,
+                  "draw": 2,
+                  "playerValue": 0,
+                  "targetValue": 2,
+                  "enabled": {
+                    "owner": true,
+                    "loser": true,
+                    "third": true
+                  },
+                  "groups": {
+                    "owner": [
+                      [
+                        "owner"
+                      ]
+                    ],
+                    "loser": [
+                      [
+                        "loser"
+                      ]
+                    ],
+                    "third": [
+                      [
+                        "third"
+                      ]
+                    ]
+                  },
+                  "denied": {},
+                  "responseDenied": {},
+                  "rescueEnabled": false,
+                  "discardable": true
+                }
+              ],
+              "players": [
+                {
+                  "id": "owner",
+                  "alive": true,
+                  "hp": 3,
+                  "maxHp": 3,
+                  "armor": 0,
+                  "mark": false,
+                  "used": false,
+                  "drunk": 0,
+                  "linked": false,
+                  "attitude": 1,
+                  "known": [],
+                  "unknown": 0,
+                  "equips": [],
+                  "judges": [],
+                  "baseRange": 1,
+                  "limitExtra": 0,
+                  "equipDisabled": [],
+                  "noResponse": {}
+                },
+                {
+                  "id": "loser",
+                  "alive": true,
+                  "hp": 3,
+                  "maxHp": 3,
+                  "armor": 0,
+                  "mark": false,
+                  "used": false,
+                  "drunk": 0,
+                  "linked": false,
+                  "attitude": 1,
+                  "known": [],
+                  "unknown": 0,
+                  "equips": [],
+                  "judges": [],
+                  "baseRange": 1,
+                  "limitExtra": 0,
+                  "equipDisabled": [],
+                  "noResponse": {}
+                },
+                {
+                  "id": "third",
+                  "alive": true,
+                  "hp": 3,
+                  "maxHp": 3,
+                  "armor": 0,
+                  "mark": false,
+                  "used": false,
+                  "drunk": 0,
+                  "linked": false,
+                  "attitude": -1,
+                  "known": [],
+                  "unknown": 0,
+                  "equips": [],
+                  "judges": [],
+                  "baseRange": 1,
+                  "limitExtra": 0,
+                  "equipDisabled": [],
+                  "noResponse": {}
+                }
+              ],
+              "quota": {
+                "damage": true,
+                "remove": true,
+                "puppetSha": false,
+                "normalSha": 0,
+                "normalJiu": 0
+              },
+              "distances": {
+                "owner:owner": 1,
+                "owner:loser": 1,
+                "owner:third": 1,
+                "loser:owner": 1,
+                "loser:loser": 1,
+                "loser:third": 1,
+                "third:owner": 1,
+                "third:loser": 1,
+                "third:third": 1
+              },
+              "initialEquips": {
+                "owner": [],
+                "loser": [],
+                "third": []
+              },
+              "roots": [
+                {
+                  "kind": "normal",
+                  "card": "c1",
+                  "user": "owner",
+                  "targets": [
+                    "loser"
+                  ]
+                },
+                {
+                  "kind": "normal",
+                  "card": "c1",
+                  "user": "owner",
+                  "targets": [
+                    "third"
+                  ]
+                },
+                {
+                  "kind": "normal",
+                  "card": "c2",
+                  "user": "owner",
+                  "targets": [
+                    "owner"
+                  ]
+                }
+              ],
+              "shaLimit": 1,
+              "chainOrder": [
+                "owner",
+                "loser",
+                "third"
+              ],
+              "ending": {
+                "kind": "identity",
+                "leader": "owner",
+                "role": "zhu",
+                "roles": {
+                  "owner": "zhu",
+                  "loser": "zhong",
+                  "third": "fan"
+                }
+              }
+            },
+            "decision": {
+              "source": "benchmark-winner",
+              "firstAction": {
+                "kind": "normal",
+                "card": "c2",
+                "user": "owner",
+                "targets": [
+                  "owner"
+                ]
+              },
+              "score": 1,
+              "continuation": [],
+              "ranked": [
+                {
+                  "action": {
+                    "kind": "normal",
+                    "card": "c2",
+                    "user": "owner",
+                    "targets": [
+                      "owner"
+                    ]
+                  },
+                  "recommended": true
+                },
+                {
+                  "action": {
+                    "kind": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "loser"
+                    ]
+                  },
+                  "recommended": false
+                },
+                {
+                  "action": {
+                    "kind": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "third"
+                    ]
+                  },
+                  "recommended": false
+                }
+              ],
+              "coverage": {
+                "roots": 3
+              },
+              "observation": {
+                "status": "choice",
+                "owner": "owner",
+                "actor": "owner",
+                "turn": 1,
+                "phase": "play",
+                "request": {
+                  "id": 1,
+                  "kind": "play",
+                  "actor": "owner"
+                },
+                "legalActions": [
+                  {
+                    "type": "play",
+                    "mode": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "loser"
+                    ]
+                  },
+                  {
+                    "type": "play",
+                    "mode": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "third"
+                    ]
+                  },
+                  {
+                    "type": "play",
+                    "mode": "normal",
+                    "card": "c2",
+                    "user": "owner",
+                    "targets": [
+                      "owner"
+                    ]
+                  },
+                  {
+                    "type": "endPlay"
+                  }
+                ],
+                "ownerHand": [
+                  {
+                    "id": "c1",
+                    "name": "sha",
+                    "suit": "spade",
+                    "rank": 7
+                  },
+                  {
+                    "id": "c2",
+                    "name": "wuzhong",
+                    "suit": "spade",
+                    "rank": 7
+                  }
+                ],
+                "players": [
+                  {
+                    "id": "owner",
+                    "team": "ally",
+                    "sex": "none",
+                    "hp": 3,
+                    "maxHp": 3,
+                    "alive": true,
+                    "handCount": 2,
+                    "equipment": {},
+                    "judgments": [],
+                    "mark": false,
+                    "linked": false,
+                    "armor": 0,
+                    "wine": 0
+                  },
+                  {
+                    "id": "loser",
+                    "team": "ally",
+                    "sex": "none",
+                    "hp": 3,
+                    "maxHp": 3,
+                    "alive": true,
+                    "handCount": 0,
+                    "equipment": {},
+                    "judgments": [],
+                    "mark": false,
+                    "linked": false,
+                    "armor": 0,
+                    "wine": 0
+                  },
+                  {
+                    "id": "third",
+                    "team": "enemy",
+                    "sex": "none",
+                    "hp": 3,
+                    "maxHp": 3,
+                    "alive": true,
+                    "handCount": 0,
+                    "equipment": {},
+                    "judgments": [],
+                    "mark": false,
+                    "linked": false,
+                    "armor": 0,
+                    "wine": 0
+                  }
+                ],
+                "quotas": {
+                  "puppetSha": false,
+                  "shishengDamage": true,
+                  "shishengRemove": true,
+                  "normalSha": 0,
+                  "normalJiu": 0,
+                  "usedSources": []
+                },
+                "events": []
+              }
+            }
+          },
+          "choice": {
+            "kind": "normal",
+            "bool": true,
+            "cards": [
+              "c2"
+            ],
+            "targets": [
+              "owner"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "scenario": "fallback-card",
+      "steps": [
+        {
+          "view": {
+            "snapshot": {
+              "owner": "owner",
+              "hand": [
+                {
+                  "id": "c1",
+                  "name": "huogong",
+                  "type": "trick",
+                  "suit": "spade",
+                  "color": "black",
+                  "nature": "",
+                  "range": 1,
+                  "globalFrom": 0,
+                  "globalTo": 0,
+                  "damage": 1,
+                  "recover": 0,
+                  "draw": 0,
+                  "playerValue": 0,
+                  "targetValue": 0,
+                  "enabled": {
+                    "owner": true,
+                    "loser": true,
+                    "third": true
+                  },
+                  "groups": {
+                    "owner": [
+                      [
+                        "owner"
+                      ]
+                    ],
+                    "loser": [
+                      [
+                        "owner"
+                      ]
+                    ],
+                    "third": [
+                      [
+                        "owner"
+                      ]
+                    ]
+                  },
+                  "denied": {},
+                  "responseDenied": {},
+                  "rescueEnabled": false,
+                  "discardable": true
+                },
+                {
+                  "id": "c2",
+                  "name": "wuxie",
+                  "type": "trick",
+                  "suit": "spade",
+                  "color": "black",
+                  "nature": "",
+                  "range": 1,
+                  "globalFrom": 0,
+                  "globalTo": 0,
+                  "damage": 0,
+                  "recover": 0,
+                  "draw": 0,
+                  "playerValue": 1,
+                  "targetValue": 0,
+                  "enabled": {
+                    "owner": false,
+                    "loser": false,
+                    "third": false
+                  },
+                  "groups": {
+                    "owner": [],
+                    "loser": [],
+                    "third": []
+                  },
+                  "denied": {},
+                  "responseDenied": {},
+                  "rescueEnabled": false,
+                  "discardable": true
+                }
+              ],
+              "players": [
+                {
+                  "id": "owner",
+                  "alive": true,
+                  "hp": 3,
+                  "maxHp": 3,
+                  "armor": 0,
+                  "mark": false,
+                  "used": false,
+                  "drunk": 0,
+                  "linked": false,
+                  "attitude": 1,
+                  "known": [],
+                  "unknown": 0,
+                  "equips": [],
+                  "judges": [],
+                  "baseRange": 1,
+                  "limitExtra": 0,
+                  "equipDisabled": [],
+                  "noResponse": {}
+                },
+                {
+                  "id": "loser",
+                  "alive": true,
+                  "hp": 3,
+                  "maxHp": 3,
+                  "armor": 0,
+                  "mark": false,
+                  "used": false,
+                  "drunk": 0,
+                  "linked": false,
+                  "attitude": 1,
+                  "known": [],
+                  "unknown": 0,
+                  "equips": [],
+                  "judges": [],
+                  "baseRange": 1,
+                  "limitExtra": 0,
+                  "equipDisabled": [],
+                  "noResponse": {}
+                },
+                {
+                  "id": "third",
+                  "alive": true,
+                  "hp": 3,
+                  "maxHp": 3,
+                  "armor": 0,
+                  "mark": false,
+                  "used": false,
+                  "drunk": 0,
+                  "linked": false,
+                  "attitude": -1,
+                  "known": [],
+                  "unknown": 0,
+                  "equips": [],
+                  "judges": [],
+                  "baseRange": 1,
+                  "limitExtra": 0,
+                  "equipDisabled": [],
+                  "noResponse": {}
+                }
+              ],
+              "quota": {
+                "damage": true,
+                "remove": true,
+                "puppetSha": false,
+                "normalSha": 0,
+                "normalJiu": 0
+              },
+              "distances": {
+                "owner:owner": 1,
+                "owner:loser": 1,
+                "owner:third": 1,
+                "loser:owner": 1,
+                "loser:loser": 1,
+                "loser:third": 1,
+                "third:owner": 1,
+                "third:loser": 1,
+                "third:third": 1
+              },
+              "initialEquips": {
+                "owner": [],
+                "loser": [],
+                "third": []
+              },
+              "roots": [
+                {
+                  "kind": "normal",
+                  "card": "c1",
+                  "user": "owner",
+                  "targets": [
+                    "owner"
+                  ]
+                }
+              ],
+              "shaLimit": 1,
+              "chainOrder": [
+                "owner",
+                "loser",
+                "third"
+              ]
+            },
+            "decision": {
+              "source": "benchmark-winner",
+              "firstAction": {
+                "kind": "normal",
+                "card": "c1",
+                "user": "owner",
+                "targets": [
+                  "owner"
+                ]
+              },
+              "score": 1,
+              "continuation": [],
+              "ranked": [
+                {
+                  "action": {
+                    "kind": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "owner"
+                    ]
+                  },
+                  "recommended": true
+                }
+              ],
+              "coverage": {
+                "roots": 1
+              },
+              "observation": {
+                "status": "choice",
+                "owner": "owner",
+                "actor": "owner",
+                "turn": 1,
+                "phase": "play",
+                "request": {
+                  "id": 1,
+                  "kind": "play",
+                  "actor": "owner"
+                },
+                "legalActions": [
+                  {
+                    "type": "play",
+                    "mode": "normal",
+                    "card": "c1",
+                    "user": "owner",
+                    "targets": [
+                      "owner"
+                    ]
+                  },
+                  {
+                    "type": "endPlay"
+                  }
+                ],
+                "ownerHand": [
+                  {
+                    "id": "c1",
+                    "name": "huogong",
+                    "suit": "spade",
+                    "rank": 7
+                  },
+                  {
+                    "id": "c2",
+                    "name": "wuxie",
+                    "suit": "spade",
+                    "rank": 7
+                  }
+                ],
+                "players": [
+                  {
+                    "id": "owner",
+                    "team": "ally",
+                    "sex": "none",
+                    "hp": 3,
+                    "maxHp": 3,
+                    "alive": true,
+                    "handCount": 2,
+                    "equipment": {},
+                    "judgments": [],
+                    "mark": false,
+                    "linked": false,
+                    "armor": 0,
+                    "wine": 0
+                  },
+                  {
+                    "id": "loser",
+                    "team": "ally",
+                    "sex": "none",
+                    "hp": 3,
+                    "maxHp": 3,
+                    "alive": true,
+                    "handCount": 0,
+                    "equipment": {},
+                    "judgments": [],
+                    "mark": false,
+                    "linked": false,
+                    "armor": 0,
+                    "wine": 0
+                  },
+                  {
+                    "id": "third",
+                    "team": "enemy",
+                    "sex": "none",
+                    "hp": 3,
+                    "maxHp": 3,
+                    "alive": true,
+                    "handCount": 0,
+                    "equipment": {},
+                    "judgments": [],
+                    "mark": false,
+                    "linked": false,
+                    "armor": 0,
+                    "wine": 0
+                  }
+                ],
+                "quotas": {
+                  "puppetSha": false,
+                  "shishengDamage": true,
+                  "shishengRemove": true,
+                  "normalSha": 0,
+                  "normalJiu": 0,
+                  "usedSources": []
+                },
+                "events": []
+              }
+            }
+          },
+          "choice": {
+            "kind": "normal",
+            "bool": true,
+            "cards": [
+              "c1"
+            ],
+            "targets": [
+              "owner"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "pseudoBlankOriginal": [
+    {
+      "name": "effect_actor_penalty",
+      "action": {
+        "kind": "normal",
+        "card": "c1",
+        "user": "owner",
+        "targets": [
+          "third"
+        ]
+      }
+    },
+    {
+      "name": "effect_target_retaliation",
+      "action": {
+        "kind": "normal",
+        "card": "c1",
+        "user": "owner",
+        "targets": [
+          "third"
+        ]
+      }
+    }
+  ]
+}

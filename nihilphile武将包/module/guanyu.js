@@ -6,6 +6,12 @@
         return "extension/" + EXT_NAME + "/image/character/" + id + "." + (ext || "png");
     }
 
+    function semanticLog() {
+        if (typeof game !== "undefined" && game && typeof game.log === "function") {
+            game.log.apply(game, arguments);
+        }
+    }
+
     function guanyuClamp(num, min, max) {
         return Math.max(min, Math.min(max, num));
     }
@@ -331,6 +337,7 @@
         },
         async content(event, trigger, player) {
             trigger.num++;
+            semanticLog("#g武圣", "：", player, "对", trigger.player, "的伤害+1");
         },
     },
 
@@ -361,20 +368,25 @@
 
             player.logSkill("nihil_duanyi", target);
 
-            game.log(target, "被", player, "展示了", card);
             target.showCards([card]);
 
             const color = get.color(card, target);
             if (color === "red") {
                 await target.give([card], player);
-                game.log(player, "获得了", card);
             } else {
                 const allHs = target.getCards("h");
                 if (allHs.length) {
                     const next = target.addToExpansion(allHs, "giveAuto", target);
                     next.gaintag.add("nihil_duanyi2");
                     await next;
-                    game.log(target, "的手牌被", "#y扣置");
+                    semanticLog(
+                        "#g断义",
+                        "：",
+                        target,
+                        "的",
+                        get.cnNumber(allHs.length),
+                        "张手牌被扣置，技能失效至本回合结束",
+                    );
                 }
                 target.addTempSkill("baiban");
                 target.addSkill("nihil_duanyi2");
@@ -397,7 +409,7 @@
             const cards = player.getExpansions("nihil_duanyi2");
             if (cards.length) {
                 await player.gain(cards, "draw");
-                game.log(player, "收回了扣置的牌");
+                semanticLog(player, "收回了被【断义】扣置的", get.cnNumber(cards.length), "张牌");
             }
             player.removeSkill("nihil_duanyi2");
         },

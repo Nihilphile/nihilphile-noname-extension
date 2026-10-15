@@ -187,6 +187,21 @@ function main() {
                 action: "ATTACK",
             },
             {
+                name: "1血无可获益丹恩时不得为虚构自疗压住三杀",
+                state: routeState({ hp: 1, effectiveSlash: 3, danenBasePositive: false }),
+                action: "ATTACK",
+            },
+            {
+                name: "2血无可获益丹恩时不得为虚构自疗压住三杀",
+                state: routeState({ hp: 2, effectiveSlash: 3, danenBasePositive: false }),
+                action: "ATTACK",
+            },
+            {
+                name: "残血无可获益丹恩且无进攻窗口时保留资源",
+                state: routeState({ hp: 1, effectiveSlash: 1, danenBasePositive: false }),
+                action: "HOLD",
+            },
+            {
                 name: "丹恩无正收益且唯一杀留不住时可攻击有缠目标",
                 state: routeState({
                     hp: 3,
@@ -275,8 +290,7 @@ function main() {
 
         const selfOneBlood = player("self", { hp: 1, hasBlood: true, isSelf: true });
         result = helpers.chooseDanenAction({ self: selfOneBlood, candidates: [] });
-        assert.strictEqual(choiceOf(result), "recover");
-        assert.strictEqual(targetOf(result).id, "self");
+        assert.strictEqual(actionOf(result), "HOLD", "即使1血也不能拆自己的血缠回血");
 
         const selfTwoBlood = player("self", { hp: 2, hasBlood: true, isSelf: true });
         const criticalAlly = player("critical-ally", { hp: 1, hasBlood: false });
@@ -295,12 +309,34 @@ function main() {
         assert.strictEqual(targetOf(result).id, "low-hp-unprotected");
 
         result = helpers.chooseDanenAction({ self: selfTwoBlood, candidates: [oneHpProtectedAlly] });
-        assert.strictEqual(choiceOf(result), "recover", "1血有缠友方仍应优先于殷华自疗");
-        assert.strictEqual(targetOf(result).id, "one-hp-protected");
+        assert.strictEqual(actionOf(result), "HOLD", "保留自己和残血队友的血缠");
+
+        const bloodEnemy = player("blood-enemy", { hp: 2, hasBlood: true, isFriend: false });
+        result = helpers.chooseDanenAction({ self: selfTwoBlood, candidates: [oneHpProtectedAlly, bloodEnemy] });
+        assert.strictEqual(choiceOf(result), "recover");
+        assert.strictEqual(targetOf(result).id, "blood-enemy", "自疗时应优先移去敌方的血缠");
 
         const healthyAlly = player("healthy-ally", { hp: 3, hasBlood: false });
         result = helpers.chooseDanenAction({ self: selfTwoBlood, candidates: [healthyAlly] });
+        assert.strictEqual(choiceOf(result), "gain");
+        assert.strictEqual(targetOf(result).id, "healthy-ally");
+
+        const healthyBloodAlly = player("healthy-blood-ally", { hp: 3, hasBlood: true });
+        result = helpers.chooseDanenAction({ self: selfOneBlood, candidates: [healthyBloodAlly] });
         assert.strictEqual(choiceOf(result), "recover");
+        assert.strictEqual(targetOf(result).id, "healthy-blood-ally", "自己残血时可借健康队友的缠回血");
+        result = helpers.chooseDanenAction({ self: selfOneBlood, candidates: [healthyBloodAlly, bloodEnemy] });
+        assert.strictEqual(targetOf(result).id, "blood-enemy", "敌方来源始终优先于健康队友");
+        result = helpers.chooseDanenAction({ self: selfTwoBlood, candidates: [healthyBloodAlly] });
+        assert.strictEqual(actionOf(result), "HOLD", "自己2血时不牺牲健康队友的血缠");
+        for (const allyHp of [1, 2]) {
+            result = helpers.chooseDanenAction({ self: selfOneBlood, candidates: [
+                player("protected-ally", { hp: allyHp, hasBlood: true }),
+            ] });
+            assert.strictEqual(actionOf(result), "HOLD", "不得向低血量队友借缠");
+        }
+        result = helpers.chooseDanenAction({ self: selfNoBlood, candidates: [bloodEnemy] });
+        assert.strictEqual(choiceOf(result), "gain", "自己无缠时优先补缠，而非拆敌方缠回血");
         assert.strictEqual(targetOf(result).id, "self");
 
         const selfFull = player("self", { hp: 3, hasBlood: true, isSelf: true });
@@ -313,8 +349,8 @@ function main() {
         assert.strictEqual(targetOf(result).id, "critical-ally");
 
         result = helpers.chooseDanenAction({ self: selfFull, candidates: [oneBloodWounded] });
-        assert.strictEqual(choiceOf(result), "recover");
-        assert.strictEqual(targetOf(result).id, "one-blood-wounded");
+        assert.strictEqual(actionOf(result), "HOLD", "殷华满体力时不得用丹恩回复队友");
+        assert.strictEqual(result.target, undefined);
 
         const otherNoBlood = player("other-no-blood", { hp: 2, hasBlood: false });
         const otherWoundedBlood = player("other-wounded-blood", { hp: 2, hasBlood: true });
@@ -326,8 +362,8 @@ function main() {
         assert.strictEqual(targetOf(result).id, "other-no-blood");
 
         result = helpers.chooseDanenAction({ self: selfFull, candidates: [otherWoundedBlood] });
-        assert.strictEqual(choiceOf(result), "recover");
-        assert.strictEqual(targetOf(result).id, "other-wounded-blood");
+        assert.strictEqual(actionOf(result), "HOLD", "AI不得把受伤的血缠队友作为回复目标");
+        assert.strictEqual(result.target, undefined);
 
         const enemy = player("enemy", { hp: 1, hasBlood: false, isFriend: false });
         result = helpers.chooseDanenAction({ self: selfFull, candidates: [enemy] });

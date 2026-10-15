@@ -6,6 +6,12 @@
         return "extension/" + EXT_NAME + "/image/character/" + id + "." + (ext || "png");
     }
 
+    function semanticLog() {
+        if (typeof game !== "undefined" && game && typeof game.log === "function") {
+            game.log.apply(game, arguments);
+        }
+    }
+
     var XY_SHA_CARD = { name: "sha", isCard: true };
     var XY_TIER_BASE = {
         "1": 1000,
@@ -526,7 +532,7 @@
         if ((Number(state.hp) || 0) <= 1) {
             if (effectiveSlash >= 4) return xyAction("ATTACK", "FOUR_SLASH_BURST");
             if (state.hasOverKillTarget) return xyAction("ATTACK", "OVERKILL");
-            return xyAction("DANEN", "SELF_RECOVER");
+            if (state.danenBasePositive) return xyAction("DANEN", "DANEN_POSITIVE");
         }
         if (state.hp === 2) {
             if (state.hasOverKillTarget) return xyAction("ATTACK", "OVERKILL");
@@ -534,7 +540,7 @@
             if (effectiveSlash === 3 && (state.hasBloodEnemy || state.hasVulnerableEnemy)) {
                 return xyAction("ATTACK", "THREE_SLASH_PRESSURE");
             }
-            return xyAction("DANEN", "CRITICAL_ALLY_OR_SELF_RECOVER");
+            if (state.danenBasePositive) return xyAction("DANEN", "DANEN_POSITIVE");
         }
         if (state.hasOverKillTarget) return xyAction("ATTACK", "OVERKILL");
         if (effectiveSlash >= 4) return xyAction("ATTACK", "FOUR_SLASH_BURST");
@@ -581,6 +587,7 @@
             candidates = (selfEntry ? [selfEntry] : []).concat(state.candidates);
             state = {
                 hp: selfEntry ? selfEntry.hp : state.hp,
+                maxHp: selfEntry ? selfEntry.maxHp : state.maxHp,
                 hasBlood: selfEntry ? !!selfEntry.hasBlood : !!state.hasBlood,
             };
         }
@@ -594,17 +601,30 @@
         function gain(entry) {
             return entry && !entry.hasBlood;
         }
-        function recover(entry) {
-            return entry && entry.hasBlood && entry.hp < entry.maxHp;
-        }
         function byHpSeat(a, b) {
             return a.hp - b.hp || (Number(a.seat) || 0) - (Number(b.seat) || 0);
+        }
+        function recoveryDonor() {
+            if (!self || self.hp >= self.maxHp) return null;
+            var enemy = candidates.filter(function (entry) {
+                return entry.isFriend === false && entry.hasBlood;
+            }).sort(byHpSeat)[0];
+            if (enemy) return enemy;
+            // 血缠的防伤、手牌上限和丹恩摸牌价值高于常规回复1体力；
+            // AI不拆自己的缠，仅在自己残血时向至少3血的健康队友借缠。
+            if (self.hp > 1) return null;
+            return friends.filter(function (entry) {
+                return !entry.isSelf && entry.hasBlood && entry.hp >= 3;
+            }).sort(function (a, b) {
+                return b.hp - a.hp || (Number(a.seat) || 0) - (Number(b.seat) || 0);
+            })[0] || null;
         }
         if (!state.hasBlood && gain(self)) {
             return { action: "DANEN", reason: "SELF_GAIN_BLOOD", choice: "gain", target: self.target || self };
         }
-        if (state.hasBlood && state.hp <= 1 && recover(self)) {
-            return { action: "DANEN", reason: "SELF_RECOVER", choice: "recover", target: self.target || self };
+        var donor = recoveryDonor();
+        if (state.hp <= 1 && donor) {
+            return { action: "DANEN", reason: "SELF_RECOVER", choice: "recover", target: donor.target || donor };
         }
         if (state.hasBlood && state.hp === 2) {
             // 血缠本身能防止一次伤害，因此低体力无缠友方比1血有缠友方更危险；
@@ -620,19 +640,8 @@
                     target: unprotected.target || unprotected,
                 };
             }
-            var woundedProtected = friends.filter(function (entry) {
-                return !entry.isSelf && entry.hp <= 1 && recover(entry);
-            }).sort(byHpSeat)[0];
-            if (woundedProtected) {
-                return {
-                    action: "DANEN",
-                    reason: "RECOVER_CRITICAL_ALLY",
-                    choice: "recover",
-                    target: woundedProtected.target || woundedProtected,
-                };
-            }
-            if (recover(self)) {
-                return { action: "DANEN", reason: "SELF_RECOVER", choice: "recover", target: self.target || self };
+            if (donor) {
+                return { action: "DANEN", reason: "SELF_RECOVER", choice: "recover", target: donor.target || donor };
             }
         }
         var priorities = [
@@ -644,24 +653,10 @@
                 },
             },
             {
-                reason: "RECOVER_ONE_HP_ALLY",
-                choice: "recover",
-                filter: function (entry) {
-                    return !entry.isSelf && entry.hp <= 1 && recover(entry);
-                },
-            },
-            {
                 reason: "GIVE_ALLY_BLOOD",
                 choice: "gain",
                 filter: function (entry) {
                     return !entry.isSelf && gain(entry);
-                },
-            },
-            {
-                reason: "RECOVER_ALLY",
-                choice: "recover",
-                filter: function (entry) {
-                    return !entry.isSelf && recover(entry);
                 },
             },
         ];
@@ -676,6 +671,9 @@
                     target: target.target || target,
                 };
             }
+        }
+        if (donor) {
+            return { action: "DANEN", reason: "SELF_RECOVER", choice: "recover", target: donor.target || donor };
         }
         return xyAction("HOLD", "NO_POSITIVE_DANEN_TARGET");
     }
@@ -738,6 +736,7 @@
     function xyBestDanenChoice(player) {
         return xyChooseDanenAction({
             hp: player.hp,
+            maxHp: player.maxHp,
             hasBlood: xyHasBlood(player),
         }, xyDanenCandidates(player));
     }
@@ -957,6 +956,14 @@
             async content(event, trigger, player) {
                 player.removeSkill("nihil_xuechan");
                 trigger.cancel();
+                semanticLog(
+                    "#g血缠",
+                    "：防止了",
+                    player,
+                    "受到的",
+                    get.cnNumber(trigger.num),
+                    "点伤害并移去状态",
+                );
             },
             mod: {
                 maxHandcard: function (player, num) {
@@ -1027,7 +1034,10 @@
                     if (player.isIn()) await player.draw(1);
                 }
 
-                if (player.isIn()) player.addSkill("nihil_xuechan");
+                if (player.isIn()) {
+                    player.addSkill("nihil_xuechan");
+                    semanticLog(player, "获得了", "#g血缠");
+                }
             },
             ai: {
                 order: function (item, player) {
@@ -1112,6 +1122,7 @@
             async content(event, trigger, player) {
                 player.logSkill("nihil_yinshang");
                 player.addSkill("nihil_xuechan");
+                semanticLog(player, "获得了", "#g血缠");
             },
         },
 
@@ -1137,9 +1148,18 @@
                     loseHpEvent._nihilYinhuaUseEvent = useEvent;
                     loseHpEvent._nihilYinhuaTargetId = xyPlayerId(target);
                 }
+                semanticLog(
+                    "#g殷殇",
+                    "：将对",
+                    target,
+                    "的",
+                    get.cnNumber(num),
+                    "点伤害改为等量体力流失",
+                );
                 await loseHpEvent;
                 if (target.isIn() && !target.hasSkill("nihil_xuechan", null, null, false)) {
                     target.addSkill("nihil_xuechan");
+                    semanticLog("#g殷殇", "：", target, "获得血缠");
                 }
             },
         },
@@ -1260,25 +1280,30 @@
                     return evt.card && evt.card.name === "sha";
                 })) return false;
 
-                return game.hasPlayer(function (current) {
-                    return !current.hasSkill("nihil_xuechan", null, null, false) ||
-                        (current.hasSkill("nihil_xuechan", null, null, false) && current.hp < current.maxHp);
+                var canGain = game.hasPlayer(function (current) {
+                    return !current.hasSkill("nihil_xuechan", null, null, false);
                 });
+                var canRecover = player.hp < player.maxHp && game.hasPlayer(function (current) {
+                    return current.hasSkill("nihil_xuechan", null, null, false);
+                });
+                return canGain || canRecover;
             },
             async content(event, trigger, player) {
                 var gainTargets = game.filterPlayer(function (current) {
                     return !current.hasSkill("nihil_xuechan", null, null, false);
                 });
-                var recoverTargets = game.filterPlayer(function (current) {
-                    return current.hasSkill("nihil_xuechan", null, null, false) && current.hp < current.maxHp;
-                });
+                var recoverTargets = player.hp < player.maxHp
+                    ? game.filterPlayer(function (current) {
+                        return current.hasSkill("nihil_xuechan", null, null, false);
+                    })
+                    : [];
 
                 var result = await player.chooseButtonTarget({
                     createDialog: [
                         get.prompt("nihil_danen"),
                         [[
                             ["gain", "令一名没有“血缠”的角色获得“血缠”"],
-                            ["recover", "令一名受伤的“血缠”角色回复1点体力"],
+                            ["recover", "移去一名角色的“血缠”，然后你回复1点体力"],
                         ], "textbutton"],
                     ],
                     filterButton: function (button) {
@@ -1309,12 +1334,18 @@
 
                 var target = result.targets[0];
                 var choice = result.links && result.links[0];
-                player.logSkill("nihil_danen", target);
 
                 if (choice === "gain") {
+                    if (target.hasSkill("nihil_xuechan", null, null, false)) return;
+                    player.logSkill("nihil_danen", target);
                     target.addSkill("nihil_xuechan");
+                    semanticLog("#g丹恩", "：", target, "获得血缠");
                 } else if (choice === "recover") {
-                    await target.recover(1);
+                    if (!target.hasSkill("nihil_xuechan", null, null, false) || player.hp >= player.maxHp) return;
+                    player.logSkill("nihil_danen", target);
+                    target.removeSkill("nihil_xuechan");
+                    semanticLog("#g丹恩", "：移去", target, "的血缠以回复体力");
+                    await player.recover(1);
                 } else {
                     return;
                 }
@@ -1351,7 +1382,7 @@
         nihil_danen: "丹恩",
         nihil_danen_info:
             "弃牌阶段开始时，若你本回合未使用过【杀】，你可以选择一项：1.令一名角色获得“血缠”；" +
-            "2.令一名“血缠”角色回复1点体力。然后你摸X张牌（X为场上“血缠”数）。",
+            "2.移去一名角色的“血缠”，然后你回复1点体力。选择后，你摸X张牌（X为场上“血缠”数）。",
     };
 
     var title = {

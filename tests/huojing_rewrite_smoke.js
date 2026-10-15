@@ -126,6 +126,10 @@ const game = {
     players: [],
     dead: [],
     phaseNumber: 0,
+    semanticLogs: [],
+    log(...parts) {
+        this.semanticLogs.push(parts);
+    },
     hasPlayer(filter) {
         return this.players.some(filter);
     },
@@ -598,6 +602,14 @@ async function main() {
     await testXiegongFailureBranches();
     await testJunshang();
     await testYizhong();
+    const semanticText = game.semanticLogs
+        .flat()
+        .filter(part => typeof part === "string")
+        .join("|");
+    assert.ok(semanticText.includes("成为唯一的“帅”"), "帅位变更应写入语义战报");
+    assert.ok(semanticText.includes("响应成功；“帅”的此【杀】伤害+1"), "协攻成功增幅应写入语义战报");
+    assert.ok(semanticText.includes("未响应"), "协攻失败分支应写入语义战报");
+    assert.ok(semanticText.includes("获得【协攻】"), "遗忠授技应写入语义战报");
     console.log("huojing rewrite smoke tests passed");
 }
 
