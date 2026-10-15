@@ -438,14 +438,14 @@ test("extension loader registers Wuyou and clears legacy AI exclusions", () => {
     assert.equal(packs.character.translate.nihil_liulian_info, undefined);
     assert.deepEqual(Array.from(packs.character.pinyins.nihil_wuyou), ["wu", "you"]);
     assert.ok(packs.character.characterIntro.nihil_wuyou.includes("如水中望月"));
-    assert.deepEqual(Array.from(lib.config.forbidai), ["other_character", "nihil_jie_luofei", "nihil_yinhua"]);
+    assert.deepEqual(Array.from(lib.config.forbidai), ["other_character", "nihil_yinhua"]);
     packs.extension.precontent();
-    assert.deepEqual(Array.from(lib.config.forbidai), ["other_character", "nihil_jie_luofei", "nihil_yinhua"]);
+    assert.deepEqual(Array.from(lib.config.forbidai), ["other_character", "nihil_yinhua"]);
     lib.config.forbidai = [];
     packs.extension.precontent();
-    assert.deepEqual(Array.from(lib.config.forbidai), ["nihil_yinhua", "nihil_jie_luofei"]);
+    assert.deepEqual(Array.from(lib.config.forbidai), ["nihil_yinhua"]);
     packs.extension.precontent();
-    assert.deepEqual(Array.from(lib.config.forbidai), ["nihil_yinhua", "nihil_jie_luofei"]);
+    assert.deepEqual(Array.from(lib.config.forbidai), ["nihil_yinhua"]);
     assert.ok(fs.existsSync(path.join(root, "image/character/nihil_wuyou.png")));
 });
 module.exports = { fixture, array };

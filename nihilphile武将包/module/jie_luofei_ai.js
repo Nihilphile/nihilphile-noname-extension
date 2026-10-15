@@ -2255,6 +2255,7 @@ module.exports.decide = function(view) {
                         var info = get.info(skill), effect = info && info.ai && info.ai.effect, fn, receiver;
                         if (side === "player") { receiver = effect; fn = effect && typeof effect === "object" && (typeof effect.player_use === "function" ? effect.player_use : effect.player); }
                         else {
+                            if (!effect) return;
                             if (user.hasSkillTag && user.hasSkillTag("ignoreSkill", true, { card: card, target: target, skill: skill, isLink: undefined })) return;
                             receiver = typeof effect === "function" ? info.ai : effect;
                             fn = typeof effect === "function" ? effect : effect && (typeof effect.target_use === "function" ? effect.target_use : effect.target);

@@ -1,0 +1,42 @@
+{
+  "portable": [
+    "huojing_ai_decision_test.js",
+    "huojing_ai_runtime_test.js",
+    "huojing_rewrite_smoke.js",
+    "huojing_stepcompiler_regression.js",
+    "jianhua_behavior_test.js",
+    "jie_luofei_ai_decision_test.js",
+    "luofei_ai_decision_test.js",
+    "luofei_smoke.js",
+    "mechanism_test_behavior.js",
+    "mechanism_test_structure.js",
+    "mikasa_behavior_test.js",
+    "shencangfeng_ai_decision_test.js",
+    "shencangfeng_behavior_test.js",
+    "wujizi_behavior_test.js",
+    "wuyou_behavior_test.js",
+    "wuyou_v3_card_types_test.js",
+    "xianxueyinhua_ai_smoke.js",
+    "xianxueyinhua_decision_test.js",
+    "xianxueyinhua_keep_planner_test.js",
+    "ycc_yuce_ai_smoke.js"
+  ],
+  "native": [
+    "jianhua_ai_decision_test.js",
+    "jianhua_ai_runtime_test.js",
+    "jie_luofei_ai_runtime_test.js",
+    "jie_luofei_ai_winner_test.js",
+    "jie_luofei_behavior_test.js",
+    "jie_luofei_blank_differential_test.js",
+    "jie_luofei_effect_risk_test.js",
+    "jie_luofei_effect_skip_test.js",
+    "jie_luofei_selection_test.js",
+    "mabaoguo_behavior_test.js",
+    "mechanism_test_engine_contract.js",
+    "shencangfeng_ai_runtime_test.js",
+    "wuyou_ai_decision_test.js",
+    "ycc_huangming_use_regression.js"
+  ],
+  "helpers": ["jianhua_ai_fixture.js"],
+  "benchmarks": ["jie_luofei_ai_perf_test.js"]
+}

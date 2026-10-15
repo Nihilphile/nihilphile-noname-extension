@@ -21,10 +21,16 @@ git push origin v1.4.0
 
 流水线会依次：
 
-1. 若当前提交含有 `tests/*.js`，运行其中的全部测试。
+1. 执行 `node scripts/test_portable.cjs`。它先检查 `tests/suites.json` 完整且无重复地分类了全部顶层测试入口，再运行其中不依赖外部引擎的 20 个测试脚本。
 2. 对扩展目录内可独立执行的 JavaScript 文件运行 `node --check`；`ycc_helpers.js` 与 `ycc_helpers_only.js` 是历史拼装片段，不作为独立文件检查。
 3. 用 `scripts/package_extension.py` 生成无额外顶层目录、可直接导入的 ZIP，并逐文件校验归档内容。
 4. 生成 `SHA256SUMS.txt`。
 5. 上传 Actions 构件并创建 GitHub Release；同一标签重新运行时会覆盖对应附件。
 
 发布只使用 GitHub 自动提供的 `GITHUB_TOKEN`，不需要配置个人访问令牌。CD 只会打包已经提交到触发版本标签或手动运行所选提交中的文件，不会包含任何本地未提交改动。
+
+## 本机引擎检查
+
+`tests/suites.json` 的 `native` 项依赖仓库外的无名杀引擎，当前有 14 个脚本；`helpers` 是夹具模块，`benchmarks` 是单独运行的性能检查。发布流水线会明确列出这些未执行项，不能把云端通过当作全部原生行为或完整实战验收。
+
+发布涉及武将 AI 或机制变更时，在配置了引擎的本机执行受影响的原生测试，并把结果和未覆盖范围写入包内 `验收记录.md`。落绯 H01 的本次范围与结果见 [v1.1.0 发布记录](releases/v1.1.0.md)。
