@@ -197,9 +197,9 @@ function fixture() {
                     return { bool: targets.length > 0, targets };
                 });
             },
-            useCard(card, targets) {
-                this.used.push({ card, targets });
-                this.getStat().card.sha = (this.getStat().card.sha || 0) + 1;
+            useCard(card, targets, addCount) {
+                this.used.push({ card, targets, addCount });
+                if (addCount !== false) this.getStat().card.sha = (this.getStat().card.sha || 0) + 1;
                 const next = game.createEvent("testUseCard", false); next.player = this; next.targets = targets; next.card = card;
                 next.setContent(vm.runInContext(`(async function(event, trigger, player) {
                     for (const target of event.targets) {
@@ -511,11 +511,18 @@ test("Caisheng death during the escalating cost stops before removing the donor'
     await f.runSkill("nihil_caisheng", p, q);
     assert.equal(p.dyingCalled, true); assert.equal(q.countMark(MARK), 2); assert.equal(p.drawn, 1);
 });
-test("Caisheng generated slash still works after the ordinary slash quota and counts as a use", async () => {
-    const f = fixture(), p = f.player("owner", true), q = f.player("donor"), other = f.player("other"); await f.start();
-    p.getStat().card.sha = 1; f.give(q, 1);
-    await f.runSkill("nihil_caisheng", p, q);
-    assert.equal(p.used.length, 1); assert.equal(p.used[0].targets[0], other); assert.equal(p.getStat().card.sha, 2);
+test("Caisheng slash ignores quota and repeated uses preserve the ordinary slash count", async () => {
+    for (const before of [undefined, 0, 1, 3]) {
+        const f = fixture(), p = f.player("owner", true), q = f.player("donor"), other = f.player("other"); await f.start();
+        if (before !== undefined) p.getStat().card.sha = before;
+        for (let index = 0; index < 2; index++) {
+            f.give(q, 1); await f.runSkill("nihil_caisheng", p, q);
+            assert.equal(p.used[index].targets[0], other);
+            assert.equal(p.getStat().card.sha, before, "generated slash must not spend an ordinary slash use");
+            assert.equal(p.used[index].addCount, false);
+        }
+        assert.equal(p.used.length, 2); assert.equal(p.storage[TURN].count, 2, "Caisheng's own cost still escalates");
+    }
 });
 test("field compatibility installs idempotently and restores native eligibility when absent", async () => {
     const f = fixture(), p = f.player("owner", true), q = f.player("other"); await f.start();

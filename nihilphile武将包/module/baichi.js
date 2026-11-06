@@ -213,7 +213,7 @@
                     }).forResult();
                 if (!choice.bool || !alive(player)) return;
                 var targets = choice.targets.filter(function (current) { return slashTarget(card, player, current); }).slice(0, count);
-                if (targets.length) await player.useCard(card, targets);
+                if (targets.length) await player.useCard(card, targets, false);
             },
             ai: {
                 order: 6,
@@ -275,7 +275,7 @@
             nihil_mingsi: "命祀",
             nihil_mingsi_info: "锁定技，当一名角色使用【闪】抵消你的【杀】时，你回复1点体力。当你的【杀】造成伤害时，防止此伤害，改为令受伤角色减少等量于此伤害值的体力上限，然后回复此伤害值两倍的体力。",
             nihil_caisheng: "裁生",
-            nihil_caisheng_info: "出牌阶段，你可以流失X点体力，移除一名有“龙佑”的角色的所有“龙佑”（可以选择自己），且该角色本回合不能成为你使用的牌的目标，然后视为使用一张【杀】，目标数至多为此次移除的层数。X为本回合此前发动此技能的次数（首次为0）。",
+            nihil_caisheng_info: "出牌阶段，你可以流失X点体力，移除一名有“龙佑”的角色的所有“龙佑”（可以选择自己），且该角色本回合不能成为你使用的牌的目标，然后视为使用一张【杀】，目标数至多为此次移除的层数。此【杀】无视次数限制且不计入使用次数。X为本回合此前发动此技能的次数（首次为0）。",
             nihil_caisheng_turn: "裁生",
             nihil_caisheng_affected: "裁生",
         },
