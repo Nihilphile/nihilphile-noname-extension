@@ -235,7 +235,7 @@
             onremove: true,
             mod: {
                 playerEnabled: function (card, player, target) {
-                    if (turnState(player).targets.includes(target.playerid)) return false;
+                    if (get.tag(card, "damage") && turnState(player).targets.includes(target.playerid)) return false;
                 },
             },
         },
@@ -249,7 +249,7 @@
                     var sources = game.players.concat(game.dead).filter(function (current) {
                         return turnState(current).targets.includes(player.playerid);
                     });
-                    return sources.length ? "本回合不能成为" + get.translation(sources) + "使用的牌的目标。回合结束后失效。" :
+                    return sources.length ? "本回合不能成为" + get.translation(sources) + "使用的伤害牌的目标。回合结束后失效。" :
                         "本回合已受到【裁生】影响。回合结束后失效。";
                 },
             },
@@ -277,7 +277,7 @@
             nihil_mingsi: "命祀",
             nihil_mingsi_info: "锁定技，你造成伤害时，防止之，改为令受伤角色减少等量体力上限，然后回复两倍于此伤害数值的体力。你的伤害牌对一名目标被抵消时，若你的当前体力小于该目标，你回复1点体力，否则你摸1张牌（每次抵消分别结算，无次数限制）。",
             nihil_caisheng: "裁生",
-            nihil_caisheng_info: "出牌阶段，你可以流失X点体力，再选择一名有“龙佑”的角色（可以是自己），移除其所有“龙佑”，且本回合其无法成为你使用的牌的目标；然后你可以视为使用一张【杀】，此【杀】无视次数限制且不计入次数，其距离和目标数上限均为此次实际移除的层数。X为本回合此前发动此技能的次数（首次为0）。",
+            nihil_caisheng_info: "出牌阶段，你可以流失X点体力，再选择一名有“龙佑”的角色（可以是自己），移除其所有“龙佑”，且本回合其无法成为你使用的伤害牌的目标；然后你可以视为使用一张【杀】，此【杀】无视次数限制且不计入次数，其距离和目标数上限均为此次实际移除的层数。X为本回合此前发动此技能的次数（首次为0）。",
             nihil_caisheng_turn: "裁生",
             nihil_caisheng_affected: "裁生",
         },

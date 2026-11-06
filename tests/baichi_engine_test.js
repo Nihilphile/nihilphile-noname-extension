@@ -607,7 +607,7 @@ test("Caisheng pays before donor selection and self uses only remaining layers",
     await f.runSkill("nihil_caisheng", p, p);
     assert.equal(p.hp, 1); assert.equal(p.countMark(MARK), 0); assert.equal(p.drawn, 0);
     assert.deepEqual(Array.from(p.offeredRange), [1, 2]);
-    assert.equal(f.lib.filter.targetEnabled({ name: "tao" }, p, p), false);
+    assert.equal(f.lib.filter.targetEnabled({ name: "tao" }, p, p), true);
 });
 test("Caisheng self-only activation requires marks left after cost", async () => {
     const f = fixture(), p = f.player("owner", true); await f.start();
@@ -623,7 +623,10 @@ test("Caisheng uses fixed distance/layer bound instead of weapon range and respe
     assert.equal(p.used[0].targets.length, 2);
     p.inRange = () => true; f.give(donor, 2); await f.runSkill("nihil_caisheng", p, donor);
     assert.equal(p.offered.includes(far), false); assert.equal(p.offered.includes(banned), false);
-    assert.equal(f.lib.filter.targetEnabled({ name: "tao" }, p, donor), false);
+    for (const name of ["sha", "juedou", "nanman", "wanjian"]) {
+        assert.equal(f.lib.filter.targetEnabled({ name }, p, donor), false, name + " must remain banned");
+    }
+    assert.equal(f.lib.filter.targetEnabled({ name: "taoyuan" }, p, donor), true);
     assert.equal(f.lib.filter.targetEnabled({ name: "sha" }, near, donor), true);
 });
 test("Caisheng can decline the generated slash without undoing removal or the ban", async () => {
@@ -664,7 +667,7 @@ test("Caisheng reminders support repeated donors, self and several sources until
     f.give(q, 1); await f.runSkill("nihil_caisheng", p, q); f.give(q, 1); await f.runSkill("nihil_caisheng", p, q);
     f.give(q, 1); await f.runSkill("nihil_caisheng", second, q);
     const text = f.lib.skill[AFFECTED].intro.content(undefined, q);
-    assert.equal(text.split("first").length - 1, 1); assert.ok(text.includes("second")); assert.equal(q.visualMarks.has(AFFECTED), true);
+    assert.equal(text.split("first").length - 1, 1); assert.ok(text.includes("second")); assert.ok(text.includes("伤害牌")); assert.equal(q.visualMarks.has(AFFECTED), true);
     await f.runSkill("nihil_caisheng", second, second); assert.equal(second.visualMarks.has(AFFECTED), true);
     f.endTurn(); assert.equal(q.visualMarks.has(AFFECTED), false); assert.equal(second.visualMarks.has(AFFECTED), false);
     assert.equal(f.lib.filter.targetEnabled({ name: "sha" }, p, q), true);
