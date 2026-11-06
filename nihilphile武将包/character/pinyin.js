@@ -14,5 +14,6 @@
         nihil_jianhua: ["jian", "hua"],
         nihil_shencangfeng: ["shen", "cang", "feng"],
         nihil_wuyou: ["wu", "you"],
+        nihil_baichi: ["bai", "chi"],
     };
 })();

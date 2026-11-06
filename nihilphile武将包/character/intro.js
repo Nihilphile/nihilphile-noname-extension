@@ -18,5 +18,6 @@
         nihil_jianhua: "心流映刃，百兵皆为剑途；锋回鞘转，杀意自成。Author @ Nihilphile。",
         nihil_shencangfeng: "刃藏一线，心守千钧；不鸣则已，出鞘惊锋。Author @ Nihilphile。",
         nihil_wuyou: "如水中望月，雾里看花。Author @ lviphylla。",
+        nihil_baichi: "生者生吾所赐，长生却由吾裁。Author @ lviphylla。",
     };
 })();

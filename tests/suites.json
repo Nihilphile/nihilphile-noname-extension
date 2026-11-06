@@ -22,6 +22,7 @@
     "ycc_yuce_ai_smoke.js"
   ],
   "native": [
+    "baichi_engine_test.js",
     "jianhua_ai_decision_test.js",
     "jianhua_ai_runtime_test.js",
     "jie_luofei_ai_runtime_test.js",
