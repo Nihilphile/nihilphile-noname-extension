@@ -20,6 +20,7 @@ game.import("extension", function (lib, game, ui, get, ai, _status) {
         "jianhua",
         "shencangfeng",
         "wuyou",
+        "longyou_hp",
         "baichi",
     ];
     const CHAR_FILES = ["pinyin", "intro", "index"];
@@ -101,7 +102,7 @@ game.import("extension", function (lib, game, ui, get, ai, _status) {
         package: {
             intro: "Nihilphile custom character pack",
             author: "Nihilphile",
-            version: "1.2.5",
+            version: "2.0.0",
             diskURL: "",
             forumURL: "",
         },

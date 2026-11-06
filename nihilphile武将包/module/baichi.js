@@ -18,13 +18,18 @@
     }
 
     function installRecovery() {
+        window.nihilLongyouHp.install(lib, game, ui, get, ai, _status);
         var prototype = lib.element.Player.prototype;
         if (!prototype.recover._nihilShengyu) {
             var original = prototype.recover;
             var recover = function () {
                 var next = original.apply(this, arguments);
-                // Native recover.filterStop runs before recoverBefore/Begin.
-                if (fieldActive() && !this.storage.nohp) delete next.filterStop;
+                // Keep non-positive recovery blocked, including after a trigger changes num.
+                var stop = next.filterStop;
+                next.filterStop = function () {
+                    if (this.num > 0 && fullRecovery(this.player)) return false;
+                    return stop.apply(this, arguments);
+                };
                 return next;
             };
             recover._nihilShengyu = true;
@@ -67,24 +72,17 @@
         num = Math.min(num, player.countMark(MARK));
         if (num <= 0) return 0;
         player.removeMark(MARK, num);
-        // Finish native removeMark and Shengyu's draws before continuing the skill.
+        // Resolve native mark events before continuing the skill.
         await _status.event.waitNext();
         return num;
-    }
-
-    function hpLoss(event, player) {
-        var parent = event.getParent();
-        if (event.num >= 0 || !parent || !["damage", "loseHp"].includes(parent.name)) return 0;
-        var armor = parent.name === "damage" && !parent.nohujia && !player.hasSkillTag("nohujia") ? player.hujia : 0;
-        return Math.max(0, -event.num - armor);
     }
 
     function turnState(player) {
         return player.storage[TURN] || { count: 0, targets: [] };
     }
 
-    function slashTarget(card, player, target) {
-        return alive(target) && player.canUse(card, target);
+    function slashTarget(card, player, target, limit) {
+        return alive(target) && get.distance(player, target) <= limit && player.canUse(card, target, false, false);
     }
 
     var skills = {
@@ -100,59 +98,17 @@
                 player.syncStorage("nihil_shengyu_started");
                 grant(player, 3);
             },
-            group: ["nihil_shengyu_recover", "nihil_shengyu_draw"],
-            subSkill: {
-                recover: {
-                    persevereSkill: true,
-                    trigger: { global: "recoverBegin" },
-                    forced: true,
-                    popup: false,
-                    lastDo: true,
-                    priority: -1000,
-                    filter: function (event) {
-                        return !event._nihilShengyu && !event.player.storage.nohp &&
-                            event.num > Math.max(0, event.player.maxHp - event.player.hp);
-                    },
-                    async content(event, trigger) {
-                        if (trigger._nihilShengyu) return;
-                        trigger._nihilShengyu = true;
-                        var healing = Math.max(0, trigger.player.maxHp - trigger.player.hp);
-                        var excess = trigger.num - healing;
-                        trigger.num = healing;
-                        grant(trigger.player, excess);
-                    },
-                },
-                draw: {
-                    persevereSkill: true,
-                    trigger: { global: "removeMark" },
-                    forced: true,
-                    popup: false,
-                    filter: function (event) { return event.markName === MARK && event.num > 0; },
-                    async content(event, trigger, player) { await player.draw(trigger.num); },
-                },
-            },
         },
         nihil_longyou: {
             charlotte: true,
-            forced: true,
-            popup: false,
             marktext: "佑",
             intro: {
                 name: "龙佑",
                 name2: "龙佑",
-                content: "共有#层龙佑，手牌上限增加#。受伤或流失体力时，先消耗龙佑抵扣实际扣血；每移除一层，拥有【生域】的角色各摸一张牌。转移不算移除。",
-            },
-            mod: {
-                maxHandcard: function (player, num) { return num + player.countMark(MARK); },
-            },
-            trigger: { player: "changeHpBegin" },
-            lastDo: true,
-            priority: -1000,
-            filter: function (event, player) { return player.countMark(MARK) > 0 && hpLoss(event, player) > 0; },
-            async content(event, trigger, player) {
-                var count = Math.min(player.countMark(MARK), hpLoss(trigger, player));
-                trigger.num += count;
-                await remove(player, count);
+                content: function (storage, player) {
+                    return "共有" + player.countMark(MARK) + "层龙佑；当前体力" + player.hp +
+                        "，体力上限" + player.maxHp + "。龙佑计入所有当前体力计算与通常手牌上限，不增加体力上限。损失体力时优先消耗。";
+                },
             },
         },
         nihil_mingsi: {
@@ -162,7 +118,7 @@
             lastDo: true,
             priority: -1000,
             filter: function (event) {
-                return event.num > 0 && !event.unreal && event.card && get.name(event.card) === "sha";
+                return event.num > 0 && !event.unreal;
             },
             async content(event, trigger) {
                 var target = trigger.player;
@@ -171,19 +127,40 @@
                 await target.loseMaxHp(num);
                 if (alive(target)) await target.recover(num * 2);
             },
+            group: ["nihil_mingsi_neutralized"],
+            subSkill: {
+                neutralized: {
+                    forced: true,
+                    locked: true,
+                    trigger: { player: ["shaMiss", "eventNeutralized"] },
+                    lastDo: true,
+                    priority: -1000,
+                    filter: function (event, player, name) {
+                        return event.type === "card" && event.player === player && alive(event.target) &&
+                            event.card && get.tag(event.card, "damage") && (name === "shaMiss" || event._neutralized) && !event._nihilMingsiRewarded;
+                    },
+                    async content(event, trigger, player) {
+                        // One reward per effect event; separate targets and later effects remain unlimited.
+                        trigger._nihilMingsiRewarded = true;
+                        if (player.hp < trigger.target.hp) await player.recover(1);
+                        else await player.draw(1);
+                    },
+                },
+            },
             ai: { expose: 0.15 },
         },
         nihil_caisheng: {
             enable: "phaseUse",
-            selectTarget: 1,
-            filter: function () { return game.hasPlayer(function (target) { return target.countMark(MARK) > 0; }); },
-            filterTarget: function (card, player, target) { return alive(target) && target.countMark(MARK) > 0; },
+            filter: function (event, player) {
+                var cost = turnState(player).count;
+                return game.hasPlayer(function (target) {
+                    return target.countMark(MARK) > (target === player ? cost : 0);
+                });
+            },
             prompt: function (event, player) {
-                return "裁生：流失" + turnState(player).count + "点体力，清空一名角色的龙佑并视为使用杀";
+                return "裁生：流失" + turnState(player).count + "点体力，再清空一名角色的龙佑，可视为使用杀";
             },
             async content(event, trigger, player) {
-                var target = event.target;
-                if (!alive(target) || target.countMark(MARK) <= 0) return;
                 var state = turnState(player);
                 var cost = state.count;
                 state.count++;
@@ -191,7 +168,16 @@
                 player.addTempSkill(TURN, { global: "phaseAfter" });
                 player.syncStorage(TURN);
                 if (cost > 0) await player.loseHp(cost);
-                if (!alive(player) || !alive(target)) return;
+                if (!alive(player) || !game.hasPlayer(function (current) { return current.countMark(MARK) > 0; })) return;
+                var donor = await player.chooseTarget([1, 1], true,
+                    "裁生：选择一名角色，移除其全部龙佑（可以选择自己）", function (card, owner, current) {
+                        return current.isIn() && current.countMark("nihil_longyou") > 0;
+                    }).set("ai", function (current) {
+                        return -get.attitude(_status.event.player, current) * current.countMark("nihil_longyou");
+                    }).forResult();
+                if (!donor.bool || !alive(player)) return;
+                var target = donor.targets[0];
+                if (!alive(target) || !target.countMark(MARK)) return;
                 if (!state.targets.includes(target.playerid)) state.targets.push(target.playerid);
                 player.syncStorage(TURN);
                 target.addTempSkill(AFFECTED, { global: "phaseAfter" });
@@ -199,27 +185,25 @@
                 var count = await remove(target, target.countMark(MARK));
                 if (!count || !alive(player)) return;
                 var card = { name: "sha", isCard: true };
-                if (!game.hasPlayer(function (current) { return slashTarget(card, player, current); })) return;
-                var choice = await player.chooseTarget([1, count], true,
-                    "裁生：视为使用一张杀，选择至多" + count + "个目标", function (card, owner, current) {
-                        return current.isIn() && owner.canUse({ name: "sha", isCard: true }, current);
-                    }).set("ai", function (current) {
+                if (!game.hasPlayer(function (current) { return slashTarget(card, player, current, count); })) return;
+                var choice = await player.chooseTarget([1, count], false,
+                    "裁生：可视为使用不计次数的杀，距离与目标数上限为" + count, function (card, owner, current) {
+                        return current.isIn() && get.distance(owner, current) <= _status.event.nihilCaishengLimit &&
+                            owner.canUse({ name: "sha", isCard: true }, current, false, false);
+                    }).set("nihilCaishengLimit", count).set("ai", function (current) {
                         return get.effect(current, { name: "sha", isCard: true }, _status.event.player, _status.event.player);
                     }).forResult();
                 if (!choice.bool || !alive(player)) return;
-                var targets = choice.targets.filter(function (current) { return slashTarget(card, player, current); }).slice(0, count);
+                var targets = choice.targets.filter(function (current) { return slashTarget(card, player, current, count); }).slice(0, count);
                 if (targets.length) await player.useCard(card, targets, false);
             },
             ai: {
                 order: 6,
                 result: {
-                    player: function (player, target) {
+                    player: function (player) {
                         var cost = turnState(player).count;
-                        if (cost >= player.hp + player.countMark(MARK)) return -100;
-                        var draws = target ? target.countMark(MARK) : 0;
-                        return draws - Math.max(0, cost - player.countMark(MARK)) * 3;
+                        return cost >= player.hp ? -100 : 1 - cost;
                     },
-                    target: function (player, target) { return -target.countMark(MARK); },
                 },
             },
         },
@@ -265,12 +249,12 @@
         translate: {
             nihil_baichi: "白螭",
             nihil_shengyu: "生域",
-            nihil_shengyu_info: "持恒技，所有角色回复体力可超出体力上限，每溢出1点转化为其一层“龙佑”。每层“龙佑”视为额外1点体力且令手牌上限+1，受伤或流失体力时优先消耗“龙佑”抵扣实际扣血。每移除一层“龙佑”，你摸一张牌。游戏开始时，你获得3层“龙佑”。满体力角色也可使用【桃】。转移不算移除。",
+            nihil_shengyu_info: "持恒技，所有角色回复体力可超出体力上限，每溢出1点转化为其一层“龙佑”。每层“龙佑”计入额外1点当前体力，参与所有技能的当前体力计算及通常手牌上限，但不增加体力上限；损失体力时优先消耗。游戏开始时，你获得3层“龙佑”。满体力不阻止回复，满体力角色也可使用【桃】。",
             nihil_longyou: "龙佑",
             nihil_mingsi: "命祀",
-            nihil_mingsi_info: "锁定技，当你的【杀】造成伤害时，防止此伤害，改为令受伤角色减少等量于此伤害值的体力上限，然后回复此伤害值两倍的体力。",
+            nihil_mingsi_info: "锁定技，你造成伤害时，防止之，改为令受伤角色减少等量体力上限，然后回复两倍于此伤害数值的体力。你的伤害牌对一名目标被抵消时，若你的当前体力小于该目标，你回复1点体力，否则你摸1张牌（每次抵消分别结算，无次数限制）。",
             nihil_caisheng: "裁生",
-            nihil_caisheng_info: "出牌阶段，你可以流失X点体力，移除一名有“龙佑”的角色的所有“龙佑”（可以选择自己），且该角色本回合不能成为你使用的牌的目标，然后视为使用一张【杀】，目标数至多为此次移除的层数。此【杀】无视次数限制且不计入使用次数。X为本回合此前发动此技能的次数（首次为0）。",
+            nihil_caisheng_info: "出牌阶段，你可以流失X点体力，再选择一名有“龙佑”的角色（可以是自己），移除其所有“龙佑”，且本回合其无法成为你使用的牌的目标；然后你可以视为使用一张【杀】，此【杀】无视次数限制且不计入次数，其距离和目标数上限均为此次实际移除的层数。X为本回合此前发动此技能的次数（首次为0）。",
             nihil_caisheng_turn: "裁生",
             nihil_caisheng_affected: "裁生",
         },
