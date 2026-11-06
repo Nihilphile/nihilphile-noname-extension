@@ -158,33 +158,18 @@
         nihil_mingsi: {
             locked: true,
             forced: true,
-            trigger: { player: "shaMiss" },
+            trigger: { source: "damageBegin4" },
+            lastDo: true,
+            priority: -1000,
             filter: function (event) {
-                return event.card && get.name(event.card) === "sha" && event.responded &&
-                    event.responded.card && get.name(event.responded.card) === "shan";
+                return event.num > 0 && !event.unreal && event.card && get.name(event.card) === "sha";
             },
-            async content(event, trigger, player) {
-                await player.recover(1);
-            },
-            group: ["nihil_mingsi_damage"],
-            subSkill: {
-                damage: {
-                    locked: true,
-                    forced: true,
-                    trigger: { source: "damageBegin4" },
-                    lastDo: true,
-                    priority: -1000,
-                    filter: function (event) {
-                        return event.num > 0 && !event.unreal && event.card && get.name(event.card) === "sha";
-                    },
-                    async content(event, trigger) {
-                        var target = trigger.player;
-                        var num = trigger.num;
-                        trigger.cancel();
-                        await target.loseMaxHp(num);
-                        if (alive(target)) await target.recover(num * 2);
-                    },
-                },
+            async content(event, trigger) {
+                var target = trigger.player;
+                var num = trigger.num;
+                trigger.cancel();
+                await target.loseMaxHp(num);
+                if (alive(target)) await target.recover(num * 2);
             },
             ai: { expose: 0.15 },
         },
@@ -283,7 +268,7 @@
             nihil_shengyu_info: "持恒技，所有角色回复体力可超出体力上限，每溢出1点转化为其一层“龙佑”。每层“龙佑”视为额外1点体力且令手牌上限+1，受伤或流失体力时优先消耗“龙佑”抵扣实际扣血。每移除一层“龙佑”，你摸一张牌。游戏开始时，你获得3层“龙佑”。满体力角色也可使用【桃】。转移不算移除。",
             nihil_longyou: "龙佑",
             nihil_mingsi: "命祀",
-            nihil_mingsi_info: "锁定技，当一名角色使用【闪】抵消你的【杀】时，你回复1点体力。当你的【杀】造成伤害时，防止此伤害，改为令受伤角色减少等量于此伤害值的体力上限，然后回复此伤害值两倍的体力。",
+            nihil_mingsi_info: "锁定技，当你的【杀】造成伤害时，防止此伤害，改为令受伤角色减少等量于此伤害值的体力上限，然后回复此伤害值两倍的体力。",
             nihil_caisheng: "裁生",
             nihil_caisheng_info: "出牌阶段，你可以流失X点体力，移除一名有“龙佑”的角色的所有“龙佑”（可以选择自己），且该角色本回合不能成为你使用的牌的目标，然后视为使用一张【杀】，目标数至多为此次移除的层数。此【杀】无视次数限制且不计入使用次数。X为本回合此前发动此技能的次数（首次为0）。",
             nihil_caisheng_turn: "裁生",

@@ -387,38 +387,38 @@ test("two Shengyu owners convert recovery once, and each draws on removal", asyn
     await t.recover(2); assert.equal(t.countMark(MARK), 2);
     await t.loseHp(1); assert.equal(p.drawn, 1); assert.equal(q.drawn, 1);
 });
-test("Mingsi only acts on dodge or damage, not when becoming a slash target", async () => {
+test("Mingsi only acts on damage, not when becoming a slash target", async () => {
     const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start();
     await f.fire("useCardToTarget", p, { target: q, card: { name: "sha" } });
     assert.equal(q.maxHp, 4); assert.equal(q.hp, 4); assert.equal(q.countMark(MARK), 0); assert.equal(p.drawn, 0);
     assert.equal(f.mod.skill.nihil_mingsi.forced, true); assert.equal(f.mod.skill.nihil_mingsi.locked, true);
 });
-test("native slash dodged by Shan forces healing, including full-health Longyou", async () => {
+test("native slash dodged by Shan neither heals nor grants Longyou to its owner", async () => {
     const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start();
     q.shanResponses = [true];
-    await f.slash(p, q); assert.equal(p.hp, 1); assert.equal(p.countMark(MARK), 4);
+    await f.slash(p, q); assert.equal(p.hp, 1); assert.equal(p.countMark(MARK), 3);
     p.maxHp = 2; q.shanResponses = [true];
-    await f.slash(p, q); assert.equal(p.hp, 2); assert.equal(p.countMark(MARK), 4);
+    await f.slash(p, q); assert.equal(p.hp, 1); assert.equal(p.countMark(MARK), 3);
     assert.equal(q.maxHp, 4); assert.equal(q.getHistory("damage").length, 0);
 });
-test("requiring two Shan heals once only if the full slash is dodged", async () => {
+test("requiring two Shan never heals the owner; partial dodge still invokes damage replacement", async () => {
     const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start();
     q.shanResponses = [true, true]; await f.slash(p, q, { shanRequired: 2 });
-    assert.equal(p.countMark(MARK), 4); assert.equal(q.maxHp, 4);
+    assert.equal(p.countMark(MARK), 3); assert.equal(q.maxHp, 4);
     q.shanResponses = [true, false]; await f.slash(p, q, { shanRequired: 2 });
-    assert.equal(p.countMark(MARK), 4); assert.equal(q.maxHp, 3); assert.equal(q.countMark(MARK), 2);
+    assert.equal(p.countMark(MARK), 3); assert.equal(q.maxHp, 3); assert.equal(q.countMark(MARK), 2);
 });
 test("skipShan without using Shan does not heal", async () => {
     const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start();
     await f.slash(p, q, { skipShan: true });
     assert.equal(p.countMark(MARK), 3); assert.equal(q.maxHp, 4);
 });
-test("stab slash only heals when Shan and the discard actually neutralize it", async () => {
+test("stab slash never heals its owner regardless of the Shan discard result", async () => {
     for (const discarded of [false, true]) {
         const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start();
         q.shanResponses = [true]; q.handCards = 1; q.discardForStab = discarded;
         await f.slash(p, q, { card: { name: "sha", nature: "stab", isCard: true } });
-        assert.equal(p.countMark(MARK), discarded ? 4 : 3);
+        assert.equal(p.countMark(MARK), 3);
         assert.equal(q.maxHp, discarded ? 4 : 3);
     }
 });
@@ -518,11 +518,11 @@ test("Caisheng slash triggers Mingsi and may select multiple targets", async () 
     assert.equal(p.used[0].targets.length, 2); assert.equal(a.maxHp, 3); assert.equal(b.maxHp, 3);
     assert.equal(a.countMark(MARK), 2); assert.equal(b.countMark(MARK), 2);
 });
-test("one Caisheng slash can heal on one dodging target and replace damage to another", async () => {
+test("one Caisheng slash gives no dodge reward and still replaces damage to another target", async () => {
     const f = fixture(), p = f.player("owner", true), donor = f.player("donor"), a = f.player("dodge"), b = f.player("hit");
     await f.start(); f.give(donor, 2); a.shanResponses = [true]; p.resolveSha = target => f.slash(p, target);
     await f.runSkill("nihil_caisheng", p, donor);
-    assert.equal(p.countMark(MARK), 4); assert.equal(p.drawn, 2);
+    assert.equal(p.countMark(MARK), 3); assert.equal(p.drawn, 2);
     assert.equal(a.maxHp, 4); assert.equal(a.countMark(MARK), 0);
     assert.equal(b.maxHp, 3); assert.equal(b.countMark(MARK), 2);
 });
