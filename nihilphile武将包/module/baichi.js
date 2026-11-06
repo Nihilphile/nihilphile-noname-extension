@@ -3,6 +3,7 @@
     var EXT_NAME = window.NIHIL_EXTENSION_NAME || "Nihilphile";
     var MARK = "nihil_longyou";
     var TURN = "nihil_caisheng_turn";
+    var AFFECTED = "nihil_caisheng_affected";
 
     function alive(player) {
         return !!player && player.isIn();
@@ -138,7 +139,10 @@
             intro: {
                 name: "龙佑",
                 name2: "龙佑",
-                content: "共有#层龙佑。受伤或流失体力时，先消耗龙佑抵扣实际扣血；每移除一层，拥有【生域】的角色各摸一张牌。转移不算移除。",
+                content: "共有#层龙佑，手牌上限增加#。受伤或流失体力时，先消耗龙佑抵扣实际扣血；每移除一层，拥有【生域】的角色各摸一张牌。转移不算移除。",
+            },
+            mod: {
+                maxHandcard: function (player, num) { return num + player.countMark(MARK); },
             },
             trigger: { player: "changeHpBegin" },
             lastDo: true,
@@ -203,6 +207,8 @@
                 if (!alive(player) || !alive(target)) return;
                 if (!state.targets.includes(target.playerid)) state.targets.push(target.playerid);
                 player.syncStorage(TURN);
+                target.addTempSkill(AFFECTED, { global: "phaseAfter" });
+                target.markSkill(AFFECTED);
                 var count = await remove(target, target.countMark(MARK));
                 if (!count || !alive(player)) return;
                 var card = { name: "sha", isCard: true };
@@ -239,6 +245,21 @@
                 },
             },
         },
+        nihil_caisheng_affected: {
+            charlotte: true,
+            mark: true,
+            marktext: "裁",
+            intro: {
+                name: "裁生",
+                content: function (storage, player) {
+                    var sources = game.players.concat(game.dead).filter(function (current) {
+                        return turnState(current).targets.includes(player.playerid);
+                    });
+                    return sources.length ? "本回合不能成为" + get.translation(sources) + "使用的牌的目标。回合结束后失效。" :
+                        "本回合已受到【裁生】影响。回合结束后失效。";
+                },
+            },
+        },
     };
 
     window.nihilModules.baichi = {
@@ -257,13 +278,14 @@
         translate: {
             nihil_baichi: "白螭",
             nihil_shengyu: "生域",
-            nihil_shengyu_info: "持恒技，所有角色回复体力可超出体力上限，每溢出1点转化为其一层“龙佑”。每层“龙佑”视为额外1点体力，受伤或流失体力时优先消耗“龙佑”抵扣实际扣血。每移除一层“龙佑”，你摸一张牌。游戏开始时，你获得3层“龙佑”。满体力角色也可使用【桃】。转移不算移除。",
+            nihil_shengyu_info: "持恒技，所有角色回复体力可超出体力上限，每溢出1点转化为其一层“龙佑”。每层“龙佑”视为额外1点体力且令手牌上限+1，受伤或流失体力时优先消耗“龙佑”抵扣实际扣血。每移除一层“龙佑”，你摸一张牌。游戏开始时，你获得3层“龙佑”。满体力角色也可使用【桃】。转移不算移除。",
             nihil_longyou: "龙佑",
             nihil_mingsi: "命祀",
             nihil_mingsi_info: "当一名角色成为你使用【杀】的目标时，你可以令其选择一项：①减少1点体力上限并获得2层“龙佑”；②将其至少一层“龙佑”转移给你。",
             nihil_caisheng: "裁生",
             nihil_caisheng_info: "出牌阶段，你可以流失X点体力，移除一名有“龙佑”的角色的所有“龙佑”（可以选择自己），且该角色本回合不能成为你使用的牌的目标，然后视为使用一张【杀】，目标数至多为此次移除的层数。X为本回合此前发动此技能的次数（首次为0）。",
             nihil_caisheng_turn: "裁生",
+            nihil_caisheng_affected: "裁生",
         },
         title: { nihil_baichi: "太素司生" },
         sort: ["nihil_baichi"],

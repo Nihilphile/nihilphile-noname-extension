@@ -9,7 +9,7 @@ const root = path.resolve(__dirname, "..");
 const engine = path.resolve(process.env.NONAME_ENGINE_ROOT || path.join(root, "../子琪源码/电脑版"));
 const cases = [];
 const test = (name, run) => cases.push({ name, run });
-const MARK = "nihil_longyou", TURN = "nihil_caisheng_turn";
+const MARK = "nihil_longyou", TURN = "nihil_caisheng_turn", AFFECTED = "nihil_caisheng_affected";
 const read = relative => fs.readFileSync(path.join(engine, relative), "utf8");
 const unbind = source => source.replace(/^import .+;\r?$/gm, "").replace(/export\s*\{[^}]*\};?/g, "");
 
@@ -39,7 +39,7 @@ function fixture() {
     const _status = { dying: [], dieClose: [], pauseManager: { async waitPause() {} } };
     const get = { name: card => card.name, info: card => typeof card === "string" ? lib.skill[card] || lib.card[card] : lib.card[card.name],
         event: () => _status.event,
-        translation: obj => obj.playerid || String(obj), cnNumber: String,
+        translation: obj => Array.isArray(obj) ? obj.map(p => p.playerid).join("、") : obj.playerid || String(obj), cnNumber: String,
         autoViewAs: card => card, copy: value => Array.isArray(value) ? value.slice() : value,
         select: value => typeof value === "number" ? [value, value] : value,
         natureList: value => value ? value.split("|") : [],
@@ -146,16 +146,17 @@ function fixture() {
     function player(id, field = false) {
         const p = Object.create(Player.prototype);
         Object.assign(p, { playerid: id, hp: field ? 1 : 4, maxHp: field ? 1 : 4, hujia: 0, storage: {},
-            skills: field ? ["nihil_shengyu", "nihil_mingsi", "nihil_caisheng"] : [],
+            skills: field ? ["nihil_shengyu", "nihil_mingsi", "nihil_caisheng"] : [], tempSkills: {}, visualMarks: new Set(),
             inGame: true, skipList: [], stat: [{ card: {}, skill: {} }], drawn: 0,
             actionHistory: [{ damage: [], sourceDamage: [] }], controls: [], used: [],
             isIn() { return this.inGame; }, isDead() { return !this.inGame; }, isAlive() { return this.inGame; }, isOut() { return false; },
             hasSkill(id) { return expanded(this).includes(id); }, hasSkillTag() { return false; },
             inRange(target) { return (target.distance || 1) <= 1; },
             update() { if (this.hp > this.maxHp) this.hp = this.maxHp; },
-            $damage() {}, $damagepop() {}, syncStorage() {}, markSkill() {}, unmarkSkill() {},
-            addSkill(id) { if (!this.skills.includes(id)) this.skills.push(id); },
-            addTempSkill(id, expiry) { this.addSkill(id); this.expiry = expiry; },
+            $damage() {}, $damagepop() {}, syncStorage() {},
+            markSkill(id) { this.visualMarks.add(id); }, unmarkSkill(id) { this.visualMarks.delete(id); },
+            addSkill(id) { if (!this.skills.includes(id)) this.skills.push(id); if (lib.skill[id]?.mark) this.markSkill(id); },
+            addTempSkill(id, expiry) { this.addSkill(id); this.expiry = expiry; this.tempSkills[id] = expiry; },
             logSkill() {},
             draw(num = 1) {
                 const next = game.createEvent("testDraw", false); next.player = this; next.num = num;
@@ -209,9 +210,16 @@ function fixture() {
         await next;
     }
     function give(p, n) { p.addSkill(MARK); p.storage[MARK] = n; }
-    function endTurn(p) {
-        p.skills = p.skills.filter(id => id !== TURN);
-        delete p.storage[TURN];
+    function endTurn() {
+        for (const p of game.players) {
+            for (const [id, expiry] of Object.entries(p.tempSkills)) {
+                if (expiry.global !== "phaseAfter") continue;
+                p.skills = p.skills.filter(skill => skill !== id);
+                delete p.tempSkills[id];
+                p.unmarkSkill(id);
+                if (lib.skill[id].onremove === true) delete p.storage[id];
+            }
+        }
     }
     async function start() {
         for (const p of game.players) if (p.hasSkill("nihil_shengyu")) lib.skill.nihil_shengyu.init(p);
@@ -220,6 +228,46 @@ function fixture() {
     return { game, get, lib, ctx, mod, player, start, fire, runSkill, give, endTurn, trace, compiler };
 }
 
+test("native hand limit includes Longyou and follows absorption, recovery, transfer and clearing", async () => {
+    const f = fixture(), p = f.player("owner", true), q = f.player("other"); await f.start();
+    assert.equal(p.getHandcardLimit(), 4, "1 HP plus 3 Longyou must allow four hand cards");
+    await p.loseHp(1); assert.equal(p.getHandcardLimit(), 3);
+    await q.recover(2); assert.equal(q.getHandcardLimit(), 6);
+    q.controls = ["转移龙佑", "2"];
+    await f.fire("useCardToTarget", p, { target: q, card: { name: "sha" } });
+    assert.equal(q.getHandcardLimit(), 4); assert.equal(p.getHandcardLimit(), 5);
+    p.accept = false; await f.runSkill("nihil_caisheng", p, p);
+    assert.equal(p.getHandcardLimit(), 1);
+});
+test("Caisheng shows a source-specific reminder until the same turn ends", async () => {
+    const f = fixture(), p = f.player("owner", true), q = f.player("donor"), other = f.player("other"); await f.start();
+    p.accept = false; f.give(q, 2); await f.runSkill("nihil_caisheng", p, q);
+    assert.equal(q.visualMarks.has(AFFECTED), true, "affected target must have a visible mark");
+    const skill = f.lib.skill[AFFECTED];
+    assert.equal(skill.marktext, "裁");
+    assert.ok(skill.intro.content(q.storage[AFFECTED], q).includes("owner"));
+    assert.equal(f.lib.filter.targetEnabled({ name: "sha" }, other, q), true);
+    await q.recover(1); assert.equal(q.visualMarks.has(AFFECTED), true);
+    assert.equal(f.lib.filter.targetEnabled({ name: "sha" }, p, q), false);
+    f.endTurn();
+    assert.equal(q.visualMarks.has(AFFECTED), false); assert.equal(q.storage[AFFECTED], undefined);
+    assert.equal(f.lib.filter.targetEnabled({ name: "sha" }, p, q), true);
+});
+test("Caisheng reminder supports self, repeated targeting and multiple casters", async () => {
+    const f = fixture(), p = f.player("first", true), second = f.player("second", true), q = f.player("donor"); await f.start();
+    p.accept = false; second.accept = false;
+    f.give(q, 1); await f.runSkill("nihil_caisheng", p, q);
+    f.give(q, 1); await f.runSkill("nihil_caisheng", p, q);
+    const firstText = f.lib.skill[AFFECTED].intro.content(undefined, q);
+    assert.equal(firstText.split("first").length - 1, 1);
+    f.give(q, 1); await f.runSkill("nihil_caisheng", second, q);
+    const text = f.lib.skill[AFFECTED].intro.content(q.storage[AFFECTED], q);
+    assert.ok(text.includes("first") && text.includes("second"));
+    await f.runSkill("nihil_caisheng", second, second);
+    assert.equal(second.visualMarks.has(AFFECTED), true);
+    f.endTurn();
+    assert.equal(q.visualMarks.has(AFFECTED), false); assert.equal(second.visualMarks.has(AFFECTED), false);
+});
 test("initial 1 HP / 3 Longyou; enterGame does not grant twice", async () => {
     const f = fixture(), p = f.player("owner", true);
     await f.start(); assert.equal(p.hp, 1); assert.equal(p.countMark(MARK), 3);
