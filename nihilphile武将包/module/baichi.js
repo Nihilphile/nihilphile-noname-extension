@@ -85,6 +85,12 @@
         return alive(target) && get.distance(player, target) <= limit && player.canUse(card, target, false, false);
     }
 
+    async function rewardMingsi(player, effect) {
+        effect._nihilMingsiRewarded = true;
+        if (player.hp < effect.target.hp) await player.recover(1);
+        else await player.draw(1);
+    }
+
     var skills = {
         nihil_shengyu: {
             persevereSkill: true,
@@ -127,7 +133,7 @@
                 await target.loseMaxHp(num);
                 if (alive(target)) await target.recover(num * 2);
             },
-            group: ["nihil_mingsi_neutralized"],
+            group: ["nihil_mingsi_neutralized", "nihil_mingsi_responded"],
             subSkill: {
                 neutralized: {
                     forced: true,
@@ -141,9 +147,26 @@
                     },
                     async content(event, trigger, player) {
                         // One reward per effect event; separate targets and later effects remain unlimited.
-                        trigger._nihilMingsiRewarded = true;
-                        if (player.hp < trigger.target.hp) await player.recover(1);
-                        else await player.draw(1);
+                        await rewardMingsi(player, trigger);
+                    },
+                },
+                responded: {
+                    forced: true,
+                    locked: true,
+                    trigger: { global: "chooseToRespondAfter" },
+                    lastDo: true,
+                    priority: -1000,
+                    filter: function (event, player) {
+                        if (!event.result || !event.result.bool) return false;
+                        var effect = event.getParent();
+                        if (!effect || effect.type !== "card" || effect.player !== player ||
+                            event.player !== effect.target || !alive(effect.target) || effect._nihilMingsiRewarded) return false;
+                        // Native AOE contents decrement this counter after the final response returns.
+                        return (effect.name === "nanman" && effect.shaRequired === 1) ||
+                            (effect.name === "wanjian" && effect.shanRequired === 1);
+                    },
+                    async content(event, trigger, player) {
+                        await rewardMingsi(player, trigger.getParent());
                     },
                 },
             },

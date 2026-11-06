@@ -195,7 +195,8 @@ function fixture(zusOrder) {
             hasSkill(id) { return expanded(this).includes(id); }, hasSkillTag() { return false; },
             inRange(target) { return (target.distance || 1) <= 1; },
             isLinked() { return false; }, countCards() { return this.handCards || 0; },
-            mayHaveShan() { return this.shanResponses?.filter(Boolean).length || 0; },
+            mayHaveShan() { return this.shanResponses?.filter(Boolean).length || this.aoeResponses?.filter(Boolean).length || 0; },
+            mayHaveSha() { return this.aoeResponses?.filter(Boolean).length || 0; },
             node: { hp: element(), count: element() }, classList: element().classList, updateMarks() {},
             $damage() {}, $damagepop() {}, syncStorage() {}, addTempClass() {},
             markSkill(id) { this.visualMarks.add(id); }, unmarkSkill(id) { this.visualMarks.delete(id); },
@@ -215,6 +216,15 @@ function fixture(zusOrder) {
                 next.response = this.shanResponses?.shift() || false;
                 next.setContent(vm.runInContext(`(async function(event) {
                     event.result = event.response ? { bool: true, card: { name: "shan", isCard: true }, cards: [], result: "shaned" } : { bool: false };
+                })`, ctx));
+                return next;
+            },
+            chooseToRespond() {
+                const next = game.createEvent("chooseToRespond"); next.player = this;
+                next.response = this.aoeResponses?.shift() || false;
+                next.responseName = _status.event.name === "wanjian" ? "shan" : "sha";
+                next.setContent(vm.runInContext(`(async function(event) {
+                    event.result = event.response ? { bool: true, card: { name: event.responseName || "sha", isCard: true }, cards: [] } : { bool: false };
                 })`, ctx));
                 return next;
             },
@@ -275,6 +285,15 @@ function fixture(zusOrder) {
         next.setContent(lib.card.sha.content);
         await next;
     }
+    async function aoe(source, targets, name, options = {}) {
+        const card = { name, isCard: true };
+        for (const target of targets) {
+            const next = game.createEvent(name);
+            Object.assign(next, { player: source, target, targets, card, cards: [], type: "card" }, options);
+            next.setContent(lib.card[name].content);
+            await next;
+        }
+    }
     async function recoveryCard(source, target, name, excluded = false) {
         const stage = Content.useCard.find(content => content.toString().includes("info.ignoreTarget"));
         assert.ok(stage, "native per-target card stage must contain the ignoreTarget gate");
@@ -305,7 +324,7 @@ function fixture(zusOrder) {
         for (const p of game.players) if (p.hasSkill("nihil_shengyu")) lib.skill.nihil_shengyu.init(p);
         await fire("gameStart", game.players[0]);
     }
-    return { game, get, lib, ctx, mod, player, start, fire, runSkill, slash, recoveryCard, give, endTurn, trace, compiler };
+    return { game, get, lib, ctx, mod, player, start, fire, runSkill, slash, aoe, recoveryCard, give, endTurn, trace, compiler };
 }
 
 test("Longyou is real current HP for direct reads, native queries and hand limit", async () => {
@@ -485,6 +504,59 @@ test("stab cancellation rewards only when Shan and its additional discard succee
         await f.slash(p, q, { card: { name: "sha", nature: "stab", isCard: true } });
         assert.equal(p.drawn, discarded ? 1 : 0); assert.equal(q.maxHp, discarded ? 4 : 3);
     }
+});
+test("native Nanman responses reward every target and compare current HP including Longyou", async () => {
+    const f = fixture(), p = f.player("owner", true), equal = f.player("equal"), high = f.player("high"), lower = f.player("lower");
+    await f.start(); f.give(high, 3);
+    equal.aoeResponses = [true]; high.aoeResponses = [true]; lower.aoeResponses = [true];
+    await f.aoe(p, [equal, high, lower], "nanman");
+    assert.equal(p.drawn, 2, "two successful Sha responses must reward two draws");
+    assert.equal(p.hp, 5, "the higher-HP target's response must reward one recovery");
+    assert.equal(equal.maxHp, 4); assert.equal(high.maxHp, 4); assert.equal(lower.maxHp, 4);
+});
+test("native Wanjian responses also reward every independently resolved target", async () => {
+    const f = fixture(), p = f.player("owner", true), equal = f.player("equal"), high = f.player("high"); await f.start(); f.give(high, 3);
+    equal.aoeResponses = [true]; high.aoeResponses = [true];
+    await f.aoe(p, [equal, high], "wanjian");
+    assert.equal(p.drawn, 1); assert.equal(p.hp, 5); assert.equal(equal.maxHp, 4); assert.equal(high.maxHp, 4);
+});
+test("multiple required AOE responses reward once only after complete resistance", async () => {
+    for (const name of ["nanman", "wanjian"]) {
+        const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start();
+        const required = name === "nanman" ? { shaRequired: 2 } : { shanRequired: 2 };
+        q.aoeResponses = [true, true]; await f.aoe(p, [q], name, required);
+        assert.equal(p.drawn, 1); assert.equal(p.hp, 4); assert.equal(q.maxHp, 4);
+    }
+});
+test("partial AOE resistance does not reward when a later required response fails", async () => {
+    for (const name of ["nanman", "wanjian"]) {
+        const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start();
+        q.aoeResponses = [true, false];
+        await f.aoe(p, [q], name, name === "nanman" ? { shaRequired: 2 } : { shanRequired: 2 });
+        assert.equal(p.drawn, 0); assert.equal(p.hp, 4); assert.equal(q.maxHp, 3); assert.equal(q.hp, 5);
+    }
+});
+test("unanswered and direct-hit AOE effects give no neutralization reward", async () => {
+    for (const name of ["nanman", "wanjian"]) for (const directHit of [false, true]) {
+        const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start();
+        q.aoeResponses = directHit ? [true] : [false];
+        await f.aoe(p, [q], name, { directHit });
+        assert.equal(p.drawn, 0); assert.equal(p.hp, 4); assert.equal(q.maxHp, 3); assert.equal(q.hp, 5);
+        if (directHit) assert.equal(q.aoeResponses.length, 1);
+    }
+});
+test("native AOE extra effect rewards the same target again using the same card", async () => {
+    const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start();
+    const card = { name: "nanman", isCard: true }; q.aoeResponses = [true, true];
+    await f.aoe(p, [q], "nanman", { card }); await f.aoe(p, [q], "nanman", { card });
+    assert.equal(p.drawn, 2); assert.equal(p.hp, 4);
+});
+test("native multi-target Sha and its extra effects each reward successful Shan separately", async () => {
+    const f = fixture(), p = f.player("owner", true), equal = f.player("equal"), high = f.player("high"); await f.start(); f.give(high, 4);
+    const card = { name: "sha", isCard: true };
+    equal.shanResponses = [true, true]; high.shanResponses = [true, true];
+    for (let repeat = 0; repeat < 2; repeat++) for (const target of [equal, high]) await f.slash(p, target, { card });
+    assert.equal(p.drawn, 2); assert.equal(p.hp, 6); assert.equal(equal.maxHp, 4); assert.equal(high.maxHp, 4);
 });
 test("damage-trick neutralization rewards each target/effect without a turn or card cap", async () => {
     const f = fixture(), p = f.player("owner", true), q = f.player("target"), high = f.player("high"); await f.start(); f.give(high, 4);
