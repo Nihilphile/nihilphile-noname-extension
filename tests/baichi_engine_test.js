@@ -14,13 +14,14 @@ const read = relative => fs.readFileSync(path.join(engine, relative), "utf8");
 const unbind = source => source.replace(/^import .+;\r?$/gm, "").replace(/export\s*\{[^}]*\};?/g, "");
 
 function fixture() {
-    const lib = { element: {}, card: {}, skill: {}, config: {}, translate: {}, natureAudio: { hujia_damage: {}, damage: {} },
+    const lib = { element: { VCard: class { constructor(card) { Object.assign(this, card); } } }, card: {}, skill: {}, config: {}, translate: {}, phaseName: [], natureAudio: { hujia_damage: {}, damage: {} },
         natureSeparator: "|", linked: ["fire", "thunder"], announce: { publish() {} } };
     const history = { everything: [], changeHp: [] }, trace = [];
     const game = { players: [], dead: [], globalEventHandlers: { addHandlerToEvent() {} },
         getGlobalHistory(key) { return key ? history[key] : history; },
         hasPlayer(filter) { return this.players.some(p => p.isIn() && filter(p)); },
         log() {}, callHook() {}, broadcast() {}, broadcastAll() {}, async delayx() {},
+        hasNature(card, nature) { return nature ? card.nature === nature : !!card.nature; },
         import(type, factory) { Object.assign(lib.card, factory().card); },
         checkMod(...args) {
             const key = args.at(-2), owner = args.at(-1);
@@ -43,11 +44,13 @@ function fixture() {
         autoViewAs: card => card, copy: value => Array.isArray(value) ? value.slice() : value,
         select: value => typeof value === "number" ? [value, value] : value,
         natureList: value => value ? value.split("|") : [],
+        nature: card => card.nature,
         distance: (player, target) => target.distance || 1,
         itemtype: value => value?.playerid ? "player" : value?.physical ? "card" : value?.name && value?.start ? "event" : undefined,
         is: { object: value => value && typeof value === "object", sameNature: () => false },
         attitude: (player, target) => player === target ? 5 : -5,
         effect: (target, card, player) => target === player ? -1 : 1,
+        damageEffect: () => -1,
         evtprompt(event, prompt) { event.prompt = prompt; },
     };
     const ctx = vm.createContext({ lib, game, get, _status, window: {}, ui: { selected: { targets: [] } }, ai: {}, console,
@@ -111,15 +114,19 @@ function fixture() {
                 const skill = lib.skill[id], trigger = skill?.trigger;
                 if (!trigger) continue;
                 const accepts = value => Array.isArray(value) ? value.includes(name) : value === name;
-                if (accepts(trigger.global) || (this.player === player && accepts(trigger.player))) matches.push({ player, skill, id });
+                if (accepts(trigger.global) || (this.player === player && accepts(trigger.player)) ||
+                    (this.source === player && accepts(trigger.source))) matches.push({ player, skill, id });
             }
         }
         if (!matches.length || (this.filterStop && this.filterStop())) return;
+        matches.sort((a, b) => (b.skill.firstDo ? 1 : b.skill.lastDo ? -1 : 0) - (a.skill.firstDo ? 1 : a.skill.lastDo ? -1 : 0) ||
+            (b.skill.priority || 0) - (a.skill.priority || 0));
         const trigger = this;
         const dispatch = game.createEvent("testDispatch", false, this);
         dispatch.setContent(vm.runInContext("(async function(event) { await event.dispatch(); })", ctx));
         dispatch.dispatch = async () => {
             for (const match of matches) {
+                if (trigger._cancelled) break;
                 if (!match.player.isIn() || (match.skill.filter && !match.skill.filter(trigger, match.player))) continue;
                 const next = game.createEvent(match.id, false);
                 next.player = match.player;
@@ -148,10 +155,12 @@ function fixture() {
         Object.assign(p, { playerid: id, hp: field ? 1 : 4, maxHp: field ? 1 : 4, hujia: 0, storage: {},
             skills: field ? ["nihil_shengyu", "nihil_mingsi", "nihil_caisheng"] : [], tempSkills: {}, visualMarks: new Set(),
             inGame: true, skipList: [], stat: [{ card: {}, skill: {} }], drawn: 0,
-            actionHistory: [{ damage: [], sourceDamage: [] }], controls: [], used: [],
+            actionHistory: [{ damage: [], sourceDamage: [] }], used: [],
             isIn() { return this.inGame; }, isDead() { return !this.inGame; }, isAlive() { return this.inGame; }, isOut() { return false; },
             hasSkill(id) { return expanded(this).includes(id); }, hasSkillTag() { return false; },
             inRange(target) { return (target.distance || 1) <= 1; },
+            isLinked() { return false; }, countCards() { return this.handCards || 0; },
+            mayHaveShan() { return this.shanResponses?.filter(Boolean).length || 0; },
             update() { if (this.hp > this.maxHp) this.hp = this.maxHp; },
             $damage() {}, $damagepop() {}, syncStorage() {},
             markSkill(id) { this.visualMarks.add(id); }, unmarkSkill(id) { this.visualMarks.delete(id); },
@@ -166,8 +175,19 @@ function fixture() {
             dying() { const next = game.createEvent("testDying", false); next.player = this;
                 next.setContent(vm.runInContext("(async function(event, trigger, player) { player.dyingCalled = true; player.inGame = false; })", ctx)); return next; },
             die() { return this.dying(); },
-            chooseBool() { return request(this, "bool", { bool: this.accept !== false }); },
-            chooseControl(options) { return request(this, "control", { control: this.controls.shift() ?? options[0] }); },
+            chooseToUse() {
+                const next = game.createEvent("testShanChoice", false); next.player = this;
+                next.response = this.shanResponses?.shift() || false;
+                next.setContent(vm.runInContext(`(async function(event) {
+                    event.result = event.response ? { bool: true, card: { name: "shan", isCard: true }, cards: [], result: "shaned" } : { bool: false };
+                })`, ctx));
+                return next;
+            },
+            chooseToDiscard() {
+                const next = game.createEvent("testDiscardChoice", false); next.player = this;
+                next.setContent(vm.runInContext("(async function(event) { event.result = { bool: !!event.player.discardForStab }; })", ctx));
+                return next;
+            },
             chooseTarget(range, forced, prompt, filter) {
                 return request(this, "target", action => {
                     const fn = vm.runInNewContext("(" + filter.toString() + ")", { get, _status: { event: action } });
@@ -187,6 +207,7 @@ function fixture() {
                         next.player = player; next.target = target; next.card = event.card;
                         next.setContent(async function(event) { await event.trigger("useCardToTarget"); });
                         await next;
+                        if (player.resolveSha) await player.resolveSha(target, event.card);
                     }
                 })`, ctx));
                 return next;
@@ -209,6 +230,12 @@ function fixture() {
         next.signal = name;
         await next;
     }
+    async function slash(source, target, options = {}) {
+        const next = game.createEvent("sha", false);
+        Object.assign(next, { player: source, target, card: { name: "sha", isCard: true }, cards: [], type: "card" }, options);
+        next.setContent(lib.card.sha.content);
+        await next;
+    }
     function give(p, n) { p.addSkill(MARK); p.storage[MARK] = n; }
     function endTurn() {
         for (const p of game.players) {
@@ -225,23 +252,22 @@ function fixture() {
         for (const p of game.players) if (p.hasSkill("nihil_shengyu")) lib.skill.nihil_shengyu.init(p);
         await fire("gameStart", game.players[0]);
     }
-    return { game, get, lib, ctx, mod, player, start, fire, runSkill, give, endTurn, trace, compiler };
+    return { game, get, lib, ctx, mod, player, start, fire, runSkill, slash, give, endTurn, trace, compiler };
 }
 
-test("native hand limit includes Longyou and follows absorption, recovery, transfer and clearing", async () => {
+test("native hand limit includes Longyou and follows absorption, recovery and clearing", async () => {
     const f = fixture(), p = f.player("owner", true), q = f.player("other"); await f.start();
     assert.equal(p.getHandcardLimit(), 4, "1 HP plus 3 Longyou must allow four hand cards");
     await p.loseHp(1); assert.equal(p.getHandcardLimit(), 3);
     await q.recover(2); assert.equal(q.getHandcardLimit(), 6);
-    q.controls = ["转移龙佑", "2"];
-    await f.fire("useCardToTarget", p, { target: q, card: { name: "sha" } });
-    assert.equal(q.getHandcardLimit(), 4); assert.equal(p.getHandcardLimit(), 5);
-    p.accept = false; await f.runSkill("nihil_caisheng", p, p);
+    await p.recover(2);
+    assert.equal(q.getHandcardLimit(), 6); assert.equal(p.getHandcardLimit(), 5);
+    await f.runSkill("nihil_caisheng", p, p);
     assert.equal(p.getHandcardLimit(), 1);
 });
 test("Caisheng shows a source-specific reminder until the same turn ends", async () => {
     const f = fixture(), p = f.player("owner", true), q = f.player("donor"), other = f.player("other"); await f.start();
-    p.accept = false; f.give(q, 2); await f.runSkill("nihil_caisheng", p, q);
+    f.give(q, 2); await f.runSkill("nihil_caisheng", p, q);
     assert.equal(q.visualMarks.has(AFFECTED), true, "affected target must have a visible mark");
     const skill = f.lib.skill[AFFECTED];
     assert.equal(skill.marktext, "裁");
@@ -255,7 +281,6 @@ test("Caisheng shows a source-specific reminder until the same turn ends", async
 });
 test("Caisheng reminder supports self, repeated targeting and multiple casters", async () => {
     const f = fixture(), p = f.player("first", true), second = f.player("second", true), q = f.player("donor"); await f.start();
-    p.accept = false; second.accept = false;
     f.give(q, 1); await f.runSkill("nihil_caisheng", p, q);
     f.give(q, 1); await f.runSkill("nihil_caisheng", p, q);
     const firstText = f.lib.skill[AFFECTED].intro.content(undefined, q);
@@ -326,38 +351,105 @@ test("two Shengyu owners convert recovery once, and each draws on removal", asyn
     await t.recover(2); assert.equal(t.countMark(MARK), 2);
     await t.loseHp(1); assert.equal(p.drawn, 1); assert.equal(q.drawn, 1);
 });
-test("Mingsi without marks loses max HP, then gains two; max-HP clamp spends no Longyou", async () => {
+test("Mingsi only acts on dodge or damage, not when becoming a slash target", async () => {
     const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start();
     await f.fire("useCardToTarget", p, { target: q, card: { name: "sha" } });
-    assert.equal(q.maxHp, 3); assert.equal(q.hp, 3); assert.equal(q.countMark(MARK), 2); assert.equal(p.drawn, 0);
+    assert.equal(q.maxHp, 4); assert.equal(q.hp, 4); assert.equal(q.countMark(MARK), 0); assert.equal(p.drawn, 0);
+    assert.equal(f.mod.skill.nihil_mingsi.forced, true); assert.equal(f.mod.skill.nihil_mingsi.locked, true);
 });
-test("Mingsi transfers selectable amounts without any removal reward", async () => {
-    for (const amount of [1, 3]) {
-        const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start(); f.give(q, 3);
-        q.controls = ["转移龙佑", String(amount)];
-        await f.fire("useCardToTarget", p, { target: q, card: { name: "sha" } });
-        assert.equal(q.countMark(MARK), 3 - amount); assert.equal(p.countMark(MARK), 3 + amount);
-        assert.equal(q.maxHp, 4); assert.equal(p.drawn, 0);
+test("native slash dodged by Shan forces healing, including full-health Longyou", async () => {
+    const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start();
+    q.shanResponses = [true];
+    await f.slash(p, q); assert.equal(p.hp, 1); assert.equal(p.countMark(MARK), 4);
+    p.maxHp = 2; q.shanResponses = [true];
+    await f.slash(p, q); assert.equal(p.hp, 2); assert.equal(p.countMark(MARK), 4);
+    assert.equal(q.maxHp, 4); assert.equal(q.getHistory("damage").length, 0);
+});
+test("requiring two Shan heals once only if the full slash is dodged", async () => {
+    const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start();
+    q.shanResponses = [true, true]; await f.slash(p, q, { shanRequired: 2 });
+    assert.equal(p.countMark(MARK), 4); assert.equal(q.maxHp, 4);
+    q.shanResponses = [true, false]; await f.slash(p, q, { shanRequired: 2 });
+    assert.equal(p.countMark(MARK), 4); assert.equal(q.maxHp, 3); assert.equal(q.countMark(MARK), 2);
+});
+test("skipShan without using Shan does not heal", async () => {
+    const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start();
+    await f.slash(p, q, { skipShan: true });
+    assert.equal(p.countMark(MARK), 3); assert.equal(q.maxHp, 4);
+});
+test("stab slash only heals when Shan and the discard actually neutralize it", async () => {
+    for (const discarded of [false, true]) {
+        const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start();
+        q.shanResponses = [true]; q.handCards = 1; q.discardForStab = discarded;
+        await f.slash(p, q, { card: { name: "sha", nature: "stab", isCard: true } });
+        assert.equal(p.countMark(MARK), discarded ? 4 : 3);
+        assert.equal(q.maxHp, discarded ? 4 : 3);
     }
 });
-test("declining Mingsi or using a non-sha has no effect", async () => {
+test("native slash damage becomes max-HP loss and double recovery before armor or existing Longyou", async () => {
+    for (const num of [1, 2, 3]) {
+        const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start();
+        q.hp = 1; q.hujia = 2; f.give(q, 2);
+        await q.damage({ num, source: p, card: { name: "sha" } });
+        const maxHp = 4 - num, healing = Math.min(num * 2, maxHp - 1);
+        assert.equal(q.maxHp, maxHp); assert.equal(q.hp, 1 + healing); assert.equal(q.hujia, 2);
+        assert.equal(q.countMark(MARK), 2 + num * 2 - healing); assert.equal(p.drawn, 0);
+        assert.equal(q.getHistory("damage").length, 0); assert.equal(p.getHistory("sourceDamage").length, 0);
+        assert.ok(f.trace.some(e => e[1] === "damageCancelled"));
+        assert.ok(!f.trace.some(e => e[1] === "damageSource" || e[1] === "damageEnd"));
+    }
+});
+test("Mingsi snapshots final modified damage and clamps HP without spending Longyou", async () => {
+    const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start(); f.give(q, 1);
+    f.game.callHook = (name, [event]) => { if (name === "checkDamage4") event.num = 2; };
+    await q.damage({ num: 1, source: p, card: { name: "sha" } });
+    assert.equal(q.maxHp, 2); assert.equal(q.hp, 2); assert.equal(q.countMark(MARK), 5); assert.equal(p.drawn, 0);
+});
+test("wounded targets heal real HP first; only excess recovery becomes Longyou", async () => {
+    const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start(); q.hp = 1;
+    await q.damage({ num: 1, source: p, card: { name: "sha" } });
+    assert.equal(q.maxHp, 3); assert.equal(q.hp, 3); assert.equal(q.countMark(MARK), 0);
+    q.hp = 2;
+    await q.damage({ num: 1, source: p, card: { name: "sha" } });
+    assert.equal(q.maxHp, 2); assert.equal(q.hp, 2); assert.equal(q.countMark(MARK), 2);
+});
+test("native slash hit without Shan invokes the locked replacement", async () => {
     const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start();
-    p.accept = false; await f.fire("useCardToTarget", p, { target: q, card: { name: "sha" } });
-    p.accept = true; await f.fire("useCardToTarget", p, { target: q, card: { name: "juedou" } });
-    assert.equal(q.maxHp, 4); assert.equal(q.countMark(MARK), 0);
+    await f.slash(p, q);
+    assert.equal(q.maxHp, 3); assert.equal(q.hp, 3); assert.equal(q.countMark(MARK), 2);
+    assert.equal(p.countMark(MARK), 3); assert.equal(q.getHistory("damage").length, 0);
+});
+test("zero damage, other cards and another source do not invoke Mingsi", async () => {
+    const f = fixture(), p = f.player("owner", true), q = f.player("target"), other = f.player("other"); await f.start();
+    await q.damage({ num: 0, source: p, card: { name: "sha" } }); assert.equal(q.maxHp, 4);
+    await q.damage({ num: 1, source: p, card: { name: "juedou" } }); assert.equal(q.hp, 3); assert.equal(q.maxHp, 4);
+    await q.damage({ num: 1, source: other, card: { name: "sha" } }); assert.equal(q.hp, 2); assert.equal(q.maxHp, 4);
+    assert.equal(q.countMark(MARK), 0);
+});
+test("damage prevented earlier does not reduce max HP or grant Longyou", async () => {
+    const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start();
+    f.lib.skill.test_prevent = { trigger: { player: "damageBegin4" },
+        content: vm.runInContext("(async function(event, trigger) { trigger.cancel(); })", f.ctx) };
+    q.addSkill("test_prevent");
+    await q.damage({ num: 2, source: p, card: { name: "sha" } });
+    assert.equal(q.maxHp, 4); assert.equal(q.hp, 4); assert.equal(q.countMark(MARK), 0);
+});
+test("max HP reduced to zero uses native death without granting marks to a corpse", async () => {
+    const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start(); q.maxHp = q.hp = 1;
+    await q.damage({ num: 1, source: p, card: { name: "sha" } });
+    assert.equal(q.maxHp, 0); assert.equal(q.dyingCalled, true); assert.equal(q.countMark(MARK), 0);
 });
 test("Caisheng accepts self with marks and rejects empty targets", async () => {
     const f = fixture(), p = f.player("owner", true), q = f.player("empty"); await f.start();
     assert.equal(f.mod.skill.nihil_caisheng.filterTarget(null, p, p), true);
     assert.equal(f.mod.skill.nihil_caisheng.filterTarget(null, p, q), false);
-    p.accept = false;
     await f.runSkill("nihil_caisheng", p, p);
     assert.equal(p.hp, 1); assert.equal(p.drawn, 3); assert.equal(p.countMark(MARK), 0);
     assert.equal(f.lib.filter.targetEnabled({ name: "tao" }, p, p), false);
     assert.equal(p.used.length, 1); assert.equal(p.used[0].targets.includes(p), false);
 });
 test("Caisheng costs 0,1,2 within one turn; a second phase does not reset the cost", async () => {
-    const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start(); p.accept = false;
+    const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start();
     for (let cost = 0; cost < 3; cost++) {
         f.give(q, 1); await f.runSkill("nihil_caisheng", p, q);
         assert.equal(p.storage[TURN].count, cost + 1);
@@ -373,7 +465,7 @@ test("Caisheng costs 0,1,2 within one turn; a second phase does not reset the co
 });
 test("Caisheng bans the donor before slash choice; enforces layer limit, range and bans", async () => {
     const f = fixture(), p = f.player("owner", true), donor = f.player("donor"), a = f.player("a"), b = f.player("b"), far = f.player("far");
-    await f.start(); p.accept = false; f.give(donor, 2); far.distance = 3; b.targetBanned = true;
+    await f.start(); f.give(donor, 2); far.distance = 3; b.targetBanned = true;
     p.onDraw = () => assert.equal(f.lib.filter.targetEnabled({ name: "sha" }, p, donor), false, "donor is protected during removal rewards");
     await f.runSkill("nihil_caisheng", p, donor);
     assert.deepEqual(p.offered.map(t => t.playerid), ["a"]);
@@ -385,12 +477,21 @@ test("Caisheng bans the donor before slash choice; enforces layer limit, range a
 });
 test("Caisheng slash triggers Mingsi and may select multiple targets", async () => {
     const f = fixture(), p = f.player("owner", true), donor = f.player("donor"), a = f.player("a"), b = f.player("b");
-    await f.start(); f.give(donor, 2); await f.runSkill("nihil_caisheng", p, donor);
+    await f.start(); f.give(donor, 2); p.resolveSha = target => f.slash(p, target);
+    await f.runSkill("nihil_caisheng", p, donor);
     assert.equal(p.used[0].targets.length, 2); assert.equal(a.maxHp, 3); assert.equal(b.maxHp, 3);
     assert.equal(a.countMark(MARK), 2); assert.equal(b.countMark(MARK), 2);
 });
+test("one Caisheng slash can heal on one dodging target and replace damage to another", async () => {
+    const f = fixture(), p = f.player("owner", true), donor = f.player("donor"), a = f.player("dodge"), b = f.player("hit");
+    await f.start(); f.give(donor, 2); a.shanResponses = [true]; p.resolveSha = target => f.slash(p, target);
+    await f.runSkill("nihil_caisheng", p, donor);
+    assert.equal(p.countMark(MARK), 4); assert.equal(p.drawn, 2);
+    assert.equal(a.maxHp, 4); assert.equal(a.countMark(MARK), 0);
+    assert.equal(b.maxHp, 3); assert.equal(b.countMark(MARK), 2);
+});
 test("self-target Caisheng pays its cost before clearing remaining Longyou", async () => {
-    const f = fixture(), p = f.player("owner", true), q = f.player("target"); f.player("other"); await f.start(); p.accept = false;
+    const f = fixture(), p = f.player("owner", true), q = f.player("target"); f.player("other"); await f.start();
     f.give(q, 1); await f.runSkill("nihil_caisheng", p, q);
     const before = p.drawn;
     f.give(p, 2); await f.runSkill("nihil_caisheng", p, p);
@@ -412,7 +513,7 @@ test("Caisheng death during the escalating cost stops before removing the donor'
 });
 test("Caisheng generated slash still works after the ordinary slash quota and counts as a use", async () => {
     const f = fixture(), p = f.player("owner", true), q = f.player("donor"), other = f.player("other"); await f.start();
-    p.accept = false; p.getStat().card.sha = 1; f.give(q, 1);
+    p.getStat().card.sha = 1; f.give(q, 1);
     await f.runSkill("nihil_caisheng", p, q);
     assert.equal(p.used.length, 1); assert.equal(p.used[0].targets[0], other); assert.equal(p.getStat().card.sha, 2);
 });

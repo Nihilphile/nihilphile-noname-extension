@@ -62,15 +62,6 @@
         return num;
     }
 
-    function transfer(source, target, num) {
-        // A transfer must not emit the engine's removeMark event.
-        source.storage[MARK] -= num;
-        source.syncStorage(MARK);
-        source[source.countMark(MARK) ? "markSkill" : "unmarkSkill"](MARK);
-        grant(target, num);
-        game.log(source, "将", num, "层龙佑转移给", target);
-    }
-
     function hpLoss(event, player) {
         var parent = event.getParent();
         if (event.num >= 0 || !parent || !["damage", "loseHp"].includes(parent.name)) return 0;
@@ -155,34 +146,35 @@
             },
         },
         nihil_mingsi: {
-            trigger: { player: "useCardToTarget" },
-            direct: true,
-            filter: function (event) { return get.name(event.card) === "sha" && alive(event.target); },
+            locked: true,
+            forced: true,
+            trigger: { player: "shaMiss" },
+            filter: function (event) {
+                return event.card && get.name(event.card) === "sha" && event.responded &&
+                    event.responded.card && get.name(event.responded.card) === "shan";
+            },
             async content(event, trigger, player) {
-                var target = trigger.target;
-                var result = await player.chooseBool("命祀：是否令" + get.translation(target) + "减体力上限获得龙佑，或转移龙佑给你？")
-                    .set("_nihilTarget", target)
-                    .set("ai", function () { return get.attitude(_status.event.player, _status.event._nihilTarget) < 0; }).forResult();
-                if (!result.bool || !alive(player) || !alive(target)) return;
-                player.logSkill("nihil_mingsi", target);
-                var options = ["减上限并获得两层龙佑"];
-                if (target.countMark(MARK) > 0) options.push("转移龙佑");
-                var choice = await target.chooseControl(options)
-                    .set("prompt", "命祀：选择一项（此杀仍继续结算）")
-                    .set("ai", function () { return _status.event.player.countMark("nihil_longyou") > 0 ? 1 : 0; }).forResult();
-                if (!alive(player) || !alive(target)) return;
-                if (choice.control === options[1] && target.countMark(MARK) > 0) {
-                    var amounts = Array.from({ length: target.countMark(MARK) }, function (_, index) { return String(index + 1); });
-                    var amount = await target.chooseControl(amounts)
-                        .set("prompt", "命祀：选择转移给" + get.translation(player) + "的龙佑层数")
-                        .set("ai", function () { return 0; }).forResult();
-                    if (!alive(player) || !alive(target)) return;
-                    var num = Number(amount.control);
-                    if (Number.isInteger(num) && num >= 1 && num <= target.countMark(MARK)) transfer(target, player, num);
-                } else {
-                    await target.loseMaxHp(1);
-                    grant(target, 2);
-                }
+                await player.recover(1);
+            },
+            group: ["nihil_mingsi_damage"],
+            subSkill: {
+                damage: {
+                    locked: true,
+                    forced: true,
+                    trigger: { source: "damageBegin4" },
+                    lastDo: true,
+                    priority: -1000,
+                    filter: function (event) {
+                        return event.num > 0 && !event.unreal && event.card && get.name(event.card) === "sha";
+                    },
+                    async content(event, trigger) {
+                        var target = trigger.player;
+                        var num = trigger.num;
+                        trigger.cancel();
+                        await target.loseMaxHp(num);
+                        if (alive(target)) await target.recover(num * 2);
+                    },
+                },
             },
             ai: { expose: 0.15 },
         },
@@ -281,7 +273,7 @@
             nihil_shengyu_info: "持恒技，所有角色回复体力可超出体力上限，每溢出1点转化为其一层“龙佑”。每层“龙佑”视为额外1点体力且令手牌上限+1，受伤或流失体力时优先消耗“龙佑”抵扣实际扣血。每移除一层“龙佑”，你摸一张牌。游戏开始时，你获得3层“龙佑”。满体力角色也可使用【桃】。转移不算移除。",
             nihil_longyou: "龙佑",
             nihil_mingsi: "命祀",
-            nihil_mingsi_info: "当一名角色成为你使用【杀】的目标时，你可以令其选择一项：①减少1点体力上限并获得2层“龙佑”；②将其至少一层“龙佑”转移给你。",
+            nihil_mingsi_info: "锁定技，当一名角色使用【闪】抵消你的【杀】时，你回复1点体力。当你的【杀】造成伤害时，防止此伤害，改为令受伤角色减少等量于此伤害值的体力上限，然后回复此伤害值两倍的体力。",
             nihil_caisheng: "裁生",
             nihil_caisheng_info: "出牌阶段，你可以流失X点体力，移除一名有“龙佑”的角色的所有“龙佑”（可以选择自己），且该角色本回合不能成为你使用的牌的目标，然后视为使用一张【杀】，目标数至多为此次移除的层数。X为本回合此前发动此技能的次数（首次为0）。",
             nihil_caisheng_turn: "裁生",
