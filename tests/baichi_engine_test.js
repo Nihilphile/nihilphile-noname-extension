@@ -162,7 +162,7 @@ function fixture() {
             isLinked() { return false; }, countCards() { return this.handCards || 0; },
             mayHaveShan() { return this.shanResponses?.filter(Boolean).length || 0; },
             update() { if (this.hp > this.maxHp) this.hp = this.maxHp; },
-            $damage() {}, $damagepop() {}, syncStorage() {},
+            $damage() {}, $damagepop() {}, syncStorage() {}, addTempClass() {},
             markSkill(id) { this.visualMarks.add(id); }, unmarkSkill(id) { this.visualMarks.delete(id); },
             addSkill(id) { if (!this.skills.includes(id)) this.skills.push(id); if (lib.skill[id]?.mark) this.markSkill(id); },
             addTempSkill(id, expiry) { this.addSkill(id); this.expiry = expiry; this.tempSkills[id] = expiry; },
@@ -236,6 +236,15 @@ function fixture() {
         next.setContent(lib.card.sha.content);
         await next;
     }
+    async function recoveryCard(source, target, name, excluded = false) {
+        const stage = Content.useCard.find(content => content.toString().includes("info.ignoreTarget"));
+        assert.ok(stage, "native per-target card stage must contain the ignoreTarget gate");
+        const next = game.createEvent("testRecoveryCard", false);
+        Object.assign(next, { player: source, targets: [target], card: { name, isCard: true }, cards: [], num: 0,
+            excluded: excluded ? [target] : [], directHit: [], customArgs: { default: {} } });
+        next.setContent(stage);
+        await next;
+    }
     function give(p, n) { p.addSkill(MARK); p.storage[MARK] = n; }
     function endTurn() {
         for (const p of game.players) {
@@ -252,9 +261,36 @@ function fixture() {
         for (const p of game.players) if (p.hasSkill("nihil_shengyu")) lib.skill.nihil_shengyu.init(p);
         await fire("gameStart", game.players[0]);
     }
-    return { game, get, lib, ctx, mod, player, start, fire, runSkill, slash, give, endTurn, trace, compiler };
+    return { game, get, lib, ctx, mod, player, start, fire, runSkill, slash, recoveryCard, give, endTurn, trace, compiler };
 }
 
+test("native Peach Garden reaches full-health targets and adds Longyou", async () => {
+    const f = fixture(), p = f.player("owner", true), q = f.player("full"), wounded = f.player("wounded"); await f.start(); wounded.hp = 2;
+    await f.recoveryCard(p, p, "taoyuan");
+    await f.recoveryCard(p, q, "taoyuan");
+    await f.recoveryCard(p, wounded, "taoyuan");
+    assert.equal(p.countMark(MARK), 4, "Peach Garden must not skip a healthy Shengyu owner");
+    assert.equal(q.hp, 4); assert.equal(q.countMark(MARK), 1); assert.equal(q.getHandcardLimit(), 5);
+    assert.equal(wounded.hp, 3); assert.equal(wounded.countMark(MARK), 0); assert.equal(p.drawn, 0);
+});
+test("Peach Garden respects exclusions, no-HP characters and absence of Shengyu", async () => {
+    const f = fixture(), p = f.player("owner", true), q = f.player("full"); await f.start();
+    await f.recoveryCard(p, q, "taoyuan", true); assert.equal(q.countMark(MARK), 0);
+    q.storage.nohp = true; await f.recoveryCard(p, q, "taoyuan"); assert.equal(q.countMark(MARK), 0);
+    delete q.storage.nohp; p.skills = [];
+    await f.recoveryCard(q, q, "taoyuan"); assert.equal(q.countMark(MARK), 0);
+    q.hp = 3; await f.recoveryCard(q, q, "taoyuan"); assert.equal(q.hp, 4); assert.equal(q.countMark(MARK), 0);
+});
+test("Shengyu keeps wounded skill eligibility and real health-state queries", async () => {
+    const f = fixture(), p = f.player("owner", true), q = f.player("full"); await f.start();
+    const source = read("character/standard/skill.js");
+    const start = source.indexOf("\n\tqingnang: {"), end = source.indexOf("\n\tjijiu:", start);
+    assert.ok(start >= 0 && end > start);
+    const qingnang = vm.runInContext("({" + source.slice(start, end) + "}).qingnang", f.ctx);
+    assert.equal(q.isHealthy(), true); assert.equal(q.isDamaged(), false);
+    assert.equal(qingnang.filterTarget(null, p, q), false);
+    q.hp = 3; assert.equal(qingnang.filterTarget(null, p, q), true);
+});
 test("native hand limit includes Longyou and follows absorption, recovery and clearing", async () => {
     const f = fixture(), p = f.player("owner", true), q = f.player("other"); await f.start();
     assert.equal(p.getHandcardLimit(), 4, "1 HP plus 3 Longyou must allow four hand cards");
@@ -526,9 +562,11 @@ test("Caisheng slash ignores quota and repeated uses preserve the ordinary slash
 });
 test("field compatibility installs idempotently and restores native eligibility when absent", async () => {
     const f = fixture(), p = f.player("owner", true), q = f.player("other"); await f.start();
-    const proto = f.lib.element.Player.prototype, recover = proto.recover, enable = f.lib.card.tao.enable;
+    const proto = f.lib.element.Player.prototype, recover = proto.recover, enable = f.lib.card.tao.enable, ignore = f.lib.card.taoyuan.ignoreTarget;
     f.mod.init(); f.lib.skill.nihil_shengyu.init(p);
     assert.equal(proto.recover, recover); assert.equal(f.lib.card.tao.enable, enable);
+    assert.equal(f.lib.card.taoyuan.ignoreTarget, ignore);
+    assert.equal(q.isHealthy(), true); assert.equal(q.isDamaged(), false);
     p.skills = []; assert.equal(f.lib.filter.cardEnabled({ name: "tao" }, q), false);
     await q.recover(1); assert.equal(q.countMark(MARK), 0);
 });

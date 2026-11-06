@@ -30,6 +30,16 @@
             recover._nihilShengyu = true;
             prototype.recover = recover;
         }
+        var taoyuan = lib.card.taoyuan;
+        if (taoyuan && !taoyuan._nihilShengyu) {
+            var ignoreTarget = taoyuan.ignoreTarget;
+            taoyuan.ignoreTarget = function (card, player, target) {
+                // The native card skips healthy targets before creating recover.
+                if (fullRecovery(target)) return false;
+                return typeof ignoreTarget === "function" ? ignoreTarget.apply(this, arguments) : ignoreTarget;
+            };
+            taoyuan._nihilShengyu = true;
+        }
         var tao = lib.card.tao;
         if (!tao || tao._nihilShengyu) return;
         var enable = tao.enable, filterTarget = tao.filterTarget, modTarget = tao.modTarget;
