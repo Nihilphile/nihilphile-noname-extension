@@ -270,7 +270,7 @@
         },
         skill: skills,
         translate: {
-            nihil_baichi: "白螭",
+            nihil_baichi: "螭白",
             nihil_shengyu: "生域",
             nihil_shengyu_info: "持恒技，所有角色回复体力可超出体力上限，每溢出1点转化为其一层“龙佑”。每层“龙佑”计入额外1点当前体力，参与所有技能的当前体力计算及通常手牌上限，但不增加体力上限；损失体力时优先消耗。游戏开始时，你获得3层“龙佑”。满体力不阻止回复，满体力角色也可使用【桃】。",
             nihil_longyou: "龙佑",

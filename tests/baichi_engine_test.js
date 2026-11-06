@@ -693,8 +693,8 @@ test("complete extension registration, portrait, skill names and pinyin", async 
     imported.extension.precontent();
     const pack = imported.character, p = pack.character.nihil_baichi;
     assert.equal(p.hp, 1); assert.equal(p.maxHp, 1); assert.equal(p.group, "shen");
-    assert.equal(pack.translate.nihil_baichi, "白螭"); assert.equal(pack.characterTitle.nihil_baichi, "太素司生");
-    assert.deepEqual(Array.from(pack.pinyins.nihil_baichi), ["bai", "chi"]);
+    assert.equal(pack.translate.nihil_baichi, "螭白"); assert.equal(pack.characterTitle.nihil_baichi, "太素司生");
+    assert.deepEqual(Array.from(pack.pinyins.nihil_baichi), ["chi", "bai"]);
     for (const id of p.skills) assert.ok(pack.skill[id] && pack.translate[id + "_info"]);
     assert.equal(p.img, "extension/Nihilphile/image/character/nihil_baichi.png");
     const image = fs.readFileSync(path.join(root, "nihilphile武将包/image/character/nihil_baichi.png"));
