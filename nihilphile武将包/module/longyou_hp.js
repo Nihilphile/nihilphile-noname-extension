@@ -8,6 +8,8 @@
             var proto = lib.element.Player.prototype;
             var creditOnly = new WeakSet();
             var rendering = new WeakSet();
+            var jadeImage = (lib.assetURL || "") + "extension/" +
+                (window.NIHIL_EXTENSION_NAME || "Nihilphile") + "/image/mark/longyou.png";
 
             function count(player) { return player.countMark(MARK); }
             function temporary(player) { return player.storage[QIANLIN] || 0; }
@@ -67,7 +69,10 @@
                     var jade = hp.ownerDocument.createElement("div");
                     jade.className = "nihil-longyou-jade";
                     jade.title = "龙佑体力：参与当前体力计算，不增加体力上限";
-                    jade.style.cssText = "background:linear-gradient(135deg,#e6fff5,#75edc5 50%,#14866b)!important;border:1px solid #d2ffec;box-shadow:0 0 5px #5bffd1;border-radius:70% 30% 65% 35%;transform:rotate(-25deg)";
+                    // The supplied PNG has transparent margins; align its visible dragon with the HP slot.
+                    jade.style.cssText = "background:url(" + JSON.stringify(jadeImage) + ") center 28%/auto 136% no-repeat!important;" +
+                        "border:0!important;box-shadow:none!important;border-radius:0!important;transform:none!important;" +
+                        "filter:drop-shadow(0 0 1px #efd37c)!important;-webkit-filter:drop-shadow(0 0 1px #efd37c)!important";
                     hp.appendChild(jade);
                 }
                 if (amount > 8) {

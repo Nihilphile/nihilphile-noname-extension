@@ -377,6 +377,9 @@ test("native update renders highlighted pips, missing base HP and exact large co
     const f = fixture(), p = f.player("owner", true), q = f.player("other"); await f.start();
     const hp = p.node.hp;
     assert.equal(hp.querySelectorAll(".nihil-longyou-jade").length, 3);
+    assert.ok(hp.querySelectorAll(".nihil-longyou-jade").every(node =>
+        node.style.cssText.includes('url("extension/Nihilphile/image/mark/longyou.png")') &&
+        node.style.cssText.includes("transform:none!important")));
     assert.equal(hp.dataset.nihilLongyou, "3"); assert.ok(hp.title.includes("当前体力 4"));
     q.hp = 2; f.give(q, 2); q.$update();
     assert.equal(q.node.hp.children.slice(0, 4).filter(n => n.classList.contains("lost")).length, 2);
