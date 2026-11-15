@@ -85,6 +85,11 @@
         return alive(target) && get.distance(player, target) <= limit && player.canUse(card, target, false, false);
     }
 
+    function mingsiEffect(event, player) {
+        var effect = event.getParent(function (current) { return current.type === "card"; }, true);
+        return effect && effect.player === player && effect._nihilMingsiOutcome ? effect : null;
+    }
+
     async function rewardMingsi(player, effect) {
         effect._nihilMingsiRewarded = true;
         if (player.hp < effect.target.hp) await player.recover(1);
@@ -133,40 +138,48 @@
                 await target.loseMaxHp(num);
                 if (alive(target)) await target.recover(num * 2);
             },
-            group: ["nihil_mingsi_neutralized", "nihil_mingsi_responded"],
+            group: ["nihil_mingsi_outcome", "nihil_mingsi_loss"],
             subSkill: {
-                neutralized: {
+                loss: {
                     forced: true,
-                    locked: true,
-                    trigger: { player: ["shaMiss", "eventNeutralized"] },
-                    lastDo: true,
-                    priority: -1000,
-                    filter: function (event, player, name) {
-                        return event.type === "card" && event.player === player && alive(event.target) &&
-                            event.card && get.tag(event.card, "damage") && (name === "shaMiss" || event._neutralized) && !event._nihilMingsiRewarded;
-                    },
+                    popup: false,
+                    firstDo: true,
+                    priority: 1000,
+                    trigger: { global: "loseMaxHpBefore" },
+                    filter: function (event, player) { return !event._nihilMingsiObserved && !!mingsiEffect(event, player); },
                     async content(event, trigger, player) {
-                        // One reward per effect event; separate targets and later effects remain unlimited.
-                        await rewardMingsi(player, trigger);
+                        var effect = mingsiEffect(trigger, player);
+                        trigger._nihilMingsiObserved = true;
+                        // Observe actual execution, before loseMaxHpAfter can restore the limit.
+                        trigger.pushHandler(function (current, option) {
+                            if (option.state === "begin") current._nihilMingsiBefore = current.player.maxHp;
+                            else if (option.state === "end" && current.player.maxHp < current._nihilMingsiBefore &&
+                                !effect._nihilMingsiOutcome.reduced.includes(current.player)) {
+                                effect._nihilMingsiOutcome.reduced.push(current.player);
+                            }
+                        });
                     },
                 },
-                responded: {
+                outcome: {
                     forced: true,
-                    locked: true,
-                    trigger: { global: "chooseToRespondAfter" },
-                    lastDo: true,
-                    priority: -1000,
+                    popup: false,
+                    firstDo: true,
+                    priority: 1000,
+                    trigger: { player: ["useCardToBefore", "useCardToExcluded", "useCardToIgnored"] },
                     filter: function (event, player) {
-                        if (!event.result || !event.result.bool) return false;
-                        var effect = event.getParent();
-                        if (!effect || effect.type !== "card" || effect.player !== player ||
-                            event.player !== effect.target || !alive(effect.target) || effect._nihilMingsiRewarded) return false;
-                        // Native AOE contents decrement this counter after the final response returns.
-                        return (effect.name === "nanman" && effect.shaRequired === 1) ||
-                            (effect.name === "wanjian" && effect.shanRequired === 1);
+                        return event.player === player && event.card && get.name(event.card) === "sha" &&
+                            alive(event.target) && !event._nihilMingsiOutcome;
                     },
                     async content(event, trigger, player) {
-                        await rewardMingsi(player, trigger.getParent());
+                        trigger._nihilMingsiOutcome = { reduced: [] };
+                        // The native after queue also runs when a Sha is cancelled or neutralized.
+                        trigger.insertAfter(async function (event, trigger, player) {
+                            var effect = event.getParent();
+                            if (!alive(player) || !player.hasSkill("nihil_mingsi") || !alive(effect.target) ||
+                                effect._nihilMingsiOutcome.reduced.includes(effect.target) || effect._nihilMingsiRewarded) return;
+                            player.logSkill("nihil_mingsi");
+                            await rewardMingsi(player, effect);
+                        }, { player: player });
                     },
                 },
             },
@@ -275,7 +288,7 @@
             nihil_shengyu_info: "持恒技，所有角色回复体力可超出体力上限，每溢出1点转化为其一层“龙佑”。每层“龙佑”计入额外1点当前体力，参与所有技能的当前体力计算及通常手牌上限，但不增加体力上限；损失体力时优先消耗。游戏开始时，你获得3层“龙佑”。满体力不阻止回复，满体力角色也可使用【桃】。",
             nihil_longyou: "龙佑",
             nihil_mingsi: "命祀",
-            nihil_mingsi_info: "锁定技，你造成伤害时，防止之，改为令受伤角色减少等量体力上限，然后回复两倍于此伤害数值的体力。你的伤害牌对一名目标被抵消时，若你的当前体力小于该目标，你回复1点体力，否则你摸1张牌（每次抵消分别结算，无次数限制）。",
+            nihil_mingsi_info: "锁定技，你造成伤害时，防止之，改为令受伤角色减少等量体力上限，然后回复两倍于此伤害数值的体力。你的【杀】未使目标减少体力上限时，若你的当前体力小于该目标，你回复1点体力，否则你摸1张牌（对每名目标的每次结算结束后分别判断，无次数限制）。",
             nihil_caisheng: "裁生",
             nihil_caisheng_info: "出牌阶段，你可以流失X点体力，再选择一名有“龙佑”的角色（可以是自己），移除其所有“龙佑”，且本回合其无法成为你使用的伤害牌的目标；然后你可以视为使用一张【杀】，此【杀】无视次数限制且不计入次数，其距离和目标数上限均为此次实际移除的层数。X为本回合此前发动此技能的次数（首次为0）。",
             nihil_caisheng_turn: "裁生",

@@ -45,7 +45,7 @@ function fixture(zusOrder) {
         hasPlayer(filter) { return this.players.some(p => p.isIn() && filter(p)); },
         log() {}, callHook() {}, addVideo() {}, broadcast() {}, broadcastAll() {}, async delayx() {},
         hasNature(card, nature) { return nature ? card.nature === nature : !!card.nature; },
-        import(type, factory) { Object.assign(lib.card, factory().card); },
+        import(type, factory) { const pack = factory(); Object.assign(lib.card, pack.card); Object.assign(lib.skill, pack.skill); },
         checkMod(...args) {
             const key = args.at(-2), owner = args.at(-1);
             if ((key === "cardEnabled" && owner.cardBanned) || (key === "targetEnabled" && owner.targetBanned)) return false;
@@ -62,7 +62,7 @@ function fixture(zusOrder) {
     };
     const _status = { dying: [], dieClose: [], pauseManager: { async waitPause() {} } };
     const get = { name: card => card.name, info: card => typeof card === "string" ? lib.skill[card] || lib.card[card] : lib.card[card.name],
-        event: () => _status.event,
+        event: () => _status.event, prompt: id => id,
         translation: obj => Array.isArray(obj) ? obj.map(p => p.playerid).join("、") : obj.playerid || String(obj), cnNumber: String,
         autoViewAs: card => card, copy: value => Array.isArray(value) ? value.slice() : value,
         select: value => typeof value === "number" ? [value, value] : value,
@@ -166,8 +166,9 @@ function fixture(zusOrder) {
                 const next = game.createEvent(match.id, false);
                 next.player = match.player;
                 next._trigger = trigger;
+                next.triggername = name;
                 next.setContent(match.skill.content);
-                assert.equal(next.content.type, "async", "character contents preserve closures in the native compiler");
+                assert.equal(next.content.type, match.id === "guanshi_skill" ? "step" : "async", "use the native compiler for each content type");
                 await next;
             }
         };
@@ -230,7 +231,12 @@ function fixture(zusOrder) {
             },
             chooseToDiscard() {
                 const next = game.createEvent("testDiscardChoice", false); next.player = this;
-                next.setContent(vm.runInContext("(async function(event) { event.result = { bool: !!event.player.discardForStab }; })", ctx));
+                next.guanshi = _status.event.name === "guanshi_skill";
+                next.accepted = next.guanshi ? !!this.guanshiResponse : !!this.discardForStab;
+                next.setContent(vm.runInContext(`(async function(event, trigger, player) {
+                    if (event.guanshi) { player.drawnAtAxeChoice = player.drawn; player.hpAtAxeChoice = player.hp; }
+                    event.result = { bool: event.accepted };
+                })`, ctx));
                 return next;
             },
             chooseTarget(range, forced, prompt, filter) {
@@ -280,7 +286,7 @@ function fixture(zusOrder) {
         await next;
     }
     async function slash(source, target, options = {}) {
-        const next = game.createEvent("sha", false);
+        const next = game.createEvent("sha");
         Object.assign(next, { player: source, target, card: { name: "sha", isCard: true }, cards: [], type: "card" }, options);
         next.setContent(lib.card.sha.content);
         await next;
@@ -294,7 +300,7 @@ function fixture(zusOrder) {
             await next;
         }
     }
-    async function recoveryCard(source, target, name, excluded = false) {
+    async function cardTarget(source, target, name, excluded = false) {
         const stage = Content.useCard.find(content => content.toString().includes("info.ignoreTarget"));
         assert.ok(stage, "native per-target card stage must contain the ignoreTarget gate");
         const next = game.createEvent("testRecoveryCard", false);
@@ -324,7 +330,7 @@ function fixture(zusOrder) {
         for (const p of game.players) if (p.hasSkill("nihil_shengyu")) lib.skill.nihil_shengyu.init(p);
         await fire("gameStart", game.players[0]);
     }
-    return { game, get, lib, ctx, mod, player, start, fire, runSkill, slash, aoe, recoveryCard, give, endTurn, trace, compiler };
+    return { game, get, lib, ctx, mod, player, start, fire, runSkill, slash, aoe, cardTarget, give, endTurn, trace, compiler };
 }
 
 test("Longyou is real current HP for direct reads, native queries and hand limit", async () => {
@@ -404,17 +410,17 @@ test("native full-health Peach is legal while card/target bans still apply", asy
     const tao = { name: "tao" };
     assert.equal(f.lib.filter.cardEnabled(tao, q), true); assert.equal(f.lib.filter.targetEnabled(tao, q, q), true);
     assert.equal(f.lib.filter.targetEnabled(tao, q, p), false);
-    await f.recoveryCard(q, q, "tao"); assert.equal(q.hp, 5); assert.equal(q.countMark(MARK), 1);
+    await f.cardTarget(q, q, "tao"); assert.equal(q.hp, 5); assert.equal(q.countMark(MARK), 1);
     q.cardBanned = true; assert.equal(f.lib.filter.cardEnabled(tao, q), false);
     q.cardBanned = false; q.targetBanned = true; assert.equal(f.lib.filter.targetEnabled(tao, q, q), false);
 });
 test("native Peach Garden reaches full-health targets and respects exclusions", async () => {
     const f = fixture(), p = f.player("owner", true), q = f.player("full"), wounded = f.player("wounded"); await f.start(); wounded.hp = 2;
-    await f.recoveryCard(p, p, "taoyuan"); await f.recoveryCard(p, q, "taoyuan"); await f.recoveryCard(p, wounded, "taoyuan");
+    await f.cardTarget(p, p, "taoyuan"); await f.cardTarget(p, q, "taoyuan"); await f.cardTarget(p, wounded, "taoyuan");
     assert.equal(p.hp, 5); assert.equal(p.countMark(MARK), 4); assert.equal(q.hp, 5); assert.equal(q.countMark(MARK), 1);
     assert.equal(wounded.hp, 3); assert.equal(wounded.countMark(MARK), 0);
-    await f.recoveryCard(p, q, "taoyuan", true); assert.equal(q.hp, 5);
-    q.storage.nohp = true; await f.recoveryCard(p, q, "taoyuan"); assert.equal(q.hp, 5);
+    await f.cardTarget(p, q, "taoyuan", true); assert.equal(q.hp, 5);
+    q.storage.nohp = true; await f.cardTarget(p, q, "taoyuan"); assert.equal(q.hp, 5);
 });
 test("explicit wounded skill conditions and native healthy queries are preserved", async () => {
     const f = fixture(), p = f.player("owner", true), q = f.player("full"); await f.start();
@@ -505,27 +511,26 @@ test("stab cancellation rewards only when Shan and its additional discard succee
         assert.equal(p.drawn, discarded ? 1 : 0); assert.equal(q.maxHp, discarded ? 4 : 3);
     }
 });
-test("native Nanman responses reward every target and compare current HP including Longyou", async () => {
+test("native Nanman responses no longer reward Mingsi", async () => {
     const f = fixture(), p = f.player("owner", true), equal = f.player("equal"), high = f.player("high"), lower = f.player("lower");
     await f.start(); f.give(high, 3);
     equal.aoeResponses = [true]; high.aoeResponses = [true]; lower.aoeResponses = [true];
     await f.aoe(p, [equal, high, lower], "nanman");
-    assert.equal(p.drawn, 2, "two successful Sha responses must reward two draws");
-    assert.equal(p.hp, 5, "the higher-HP target's response must reward one recovery");
+    assert.equal(p.drawn, 0); assert.equal(p.hp, 4);
     assert.equal(equal.maxHp, 4); assert.equal(high.maxHp, 4); assert.equal(lower.maxHp, 4);
 });
-test("native Wanjian responses also reward every independently resolved target", async () => {
+test("native Wanjian responses no longer reward Mingsi", async () => {
     const f = fixture(), p = f.player("owner", true), equal = f.player("equal"), high = f.player("high"); await f.start(); f.give(high, 3);
     equal.aoeResponses = [true]; high.aoeResponses = [true];
     await f.aoe(p, [equal, high], "wanjian");
-    assert.equal(p.drawn, 1); assert.equal(p.hp, 5); assert.equal(equal.maxHp, 4); assert.equal(high.maxHp, 4);
+    assert.equal(p.drawn, 0); assert.equal(p.hp, 4); assert.equal(equal.maxHp, 4); assert.equal(high.maxHp, 4);
 });
-test("multiple required AOE responses reward once only after complete resistance", async () => {
+test("multiple successful AOE responses give no Sha outcome reward", async () => {
     for (const name of ["nanman", "wanjian"]) {
         const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start();
         const required = name === "nanman" ? { shaRequired: 2 } : { shanRequired: 2 };
         q.aoeResponses = [true, true]; await f.aoe(p, [q], name, required);
-        assert.equal(p.drawn, 1); assert.equal(p.hp, 4); assert.equal(q.maxHp, 4);
+        assert.equal(p.drawn, 0); assert.equal(p.hp, 4); assert.equal(q.maxHp, 4);
     }
 });
 test("partial AOE resistance does not reward when a later required response fails", async () => {
@@ -545,11 +550,11 @@ test("unanswered and direct-hit AOE effects give no neutralization reward", asyn
         if (directHit) assert.equal(q.aoeResponses.length, 1);
     }
 });
-test("native AOE extra effect rewards the same target again using the same card", async () => {
+test("repeated AOE effects never give a Sha outcome reward", async () => {
     const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start();
     const card = { name: "nanman", isCard: true }; q.aoeResponses = [true, true];
     await f.aoe(p, [q], "nanman", { card }); await f.aoe(p, [q], "nanman", { card });
-    assert.equal(p.drawn, 2); assert.equal(p.hp, 4);
+    assert.equal(p.drawn, 0); assert.equal(p.hp, 4);
 });
 test("native multi-target Sha and its extra effects each reward successful Shan separately", async () => {
     const f = fixture(), p = f.player("owner", true), equal = f.player("equal"), high = f.player("high"); await f.start(); f.give(high, 4);
@@ -558,27 +563,32 @@ test("native multi-target Sha and its extra effects each reward successful Shan 
     for (let repeat = 0; repeat < 2; repeat++) for (const target of [equal, high]) await f.slash(p, target, { card });
     assert.equal(p.drawn, 2); assert.equal(p.hp, 6); assert.equal(equal.maxHp, 4); assert.equal(high.maxHp, 4);
 });
-test("damage-trick neutralization rewards each target/effect without a turn or card cap", async () => {
+test("a successful Sha reduction does not suppress a later failed effect of the same card", async () => {
+    const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start();
+    const card = { name: "sha", isCard: true };
+    await f.slash(p, q, { card }); assert.equal(q.maxHp, 3); assert.equal(p.hp, 4); assert.equal(p.drawn, 0);
+    q.shanResponses = [true]; await f.slash(p, q, { card });
+    assert.equal(q.maxHp, 3); assert.equal(p.hp, 5); assert.equal(p.drawn, 0);
+});
+test("damage trick neutralization never gives a Sha outcome reward", async () => {
     const f = fixture(), p = f.player("owner", true), q = f.player("target"), high = f.player("high"); await f.start(); f.give(high, 4);
     const card = { name: "nanman" };
     for (const target of [q, high, high, high, q]) await f.fire("eventNeutralized", p, { type: "card", target, card });
-    assert.equal(p.drawn, 2); assert.equal(p.hp, 7); assert.equal(p.countMark(MARK), 6);
-    const effect = f.game.createEvent("nanman", false); Object.assign(effect, { player: p, target: q, card, type: "card" });
+    const effect = f.game.createEvent("nanman"); Object.assign(effect, { player: p, target: q, card, type: "card" });
     effect.setContent(vm.runInContext('(async function(event) { await event.neutralize(); })', f.ctx));
-    await effect; assert.equal(p.drawn, 3);
+    await effect; assert.equal(p.drawn, 0); assert.equal(p.hp, 4);
 });
 test("duplicate notifications on one effect do not reward twice, later effects still reward", async () => {
     const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start();
-    const effect = f.game.createEvent("sha", false); Object.assign(effect, { player: p, target: q, card: { name: "sha" }, type: "card" });
+    const effect = f.game.createEvent("sha"); Object.assign(effect, { player: p, target: q, card: { name: "sha" }, type: "card" });
     effect.setContent(vm.runInContext('(async function(event) { await event.trigger("shaMiss"); await event.trigger("eventNeutralized"); })', f.ctx));
     await effect; assert.equal(p.drawn, 1);
     q.shanResponses = [true]; await f.slash(p, q); assert.equal(p.drawn, 2);
 });
-test("non-damage cards, Wuxie negotiation events and generic exclusion do not reward", async () => {
+test("non-Sha cards and Wuxie negotiation events do not reward", async () => {
     const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start();
     await f.fire("eventNeutralized", p, { type: "card", target: q, card: { name: "tao" } });
     await f.fire("eventNeutralized", p, { type: "wuxie", target: q, card: { name: "juedou" } });
-    await f.fire("useCardToExcluded", p, { type: "card", target: q, card: { name: "sha" } });
     assert.equal(p.drawn, 0); assert.equal(p.hp, 4);
 });
 test("a neutralization undone by an earlier skill gives no reward", async () => {
@@ -589,6 +599,97 @@ test("a neutralization undone by an earlier skill gives no reward", async () => 
     const effect = f.game.createEvent("juedou", false); Object.assign(effect, { player: p, target: q, card: { name: "juedou" }, type: "card" });
     effect.setContent(vm.runInContext('(async function(event) { await event.neutralize(); })', f.ctx));
     await effect; assert.equal(p.drawn, 0); assert.equal(p.hp, 4); assert.equal(effect._neutralized, false);
+});
+test("native Guanshi Axe decision finishes before any Mingsi failure reward", async () => {
+    for (const accepted of [false, true]) for (const higher of [false, true]) {
+        const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start();
+        if (higher) f.give(q, 3);
+        p.addSkill("guanshi_skill"); p.handCards = 2; p.guanshiResponse = accepted;
+        q.shanResponses = [true]; await f.slash(p, q);
+        assert.equal(p.drawnAtAxeChoice, 0); assert.equal(p.hpAtAxeChoice, 4);
+        assert.equal(q.maxHp, accepted ? 3 : 4);
+        assert.equal(p.drawn, !accepted && !higher ? 1 : 0);
+        assert.equal(p.hp, !accepted && higher ? 5 : 4);
+    }
+});
+test("a native Sha hit reduces the limit and gives no failure reward", async () => {
+    const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start();
+    await f.cardTarget(p, q, "sha");
+    assert.equal(q.maxHp, 3); assert.equal(q.hp, 5); assert.equal(p.drawn, 0); assert.equal(p.hp, 4);
+});
+test("prevented Sha damage rewards without requiring a Shan response", async () => {
+    const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start();
+    f.lib.skill.test_prevent = { trigger: { player: "damageBegin4" }, content: vm.runInContext(
+        "(async function(event, trigger) { trigger.cancel(); })", f.ctx) };
+    q.addSkill("test_prevent"); await f.slash(p, q);
+    assert.equal(q.maxHp, 4); assert.equal(p.drawn, 1); assert.equal(p.hp, 4);
+});
+test("Sha with zeroed damage and Sha marked unhurt each reward once", async () => {
+    for (const unhurt of [false, true]) {
+        const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start();
+        if (!unhurt) {
+            f.lib.skill.test_zero = { trigger: { player: "damageBegin1" }, content: vm.runInContext(
+                "(async function(event, trigger) { trigger.num = 0; })", f.ctx) };
+            q.addSkill("test_zero");
+        }
+        await f.slash(p, q, { unhurt });
+        assert.equal(q.maxHp, 4); assert.equal(p.drawn, 1); assert.equal(p.hp, 4);
+    }
+});
+test("cancelled or zeroed max-HP loss qualifies despite Mingsi having activated", async () => {
+    for (const cancel of [false, true]) {
+        const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start();
+        f.lib.skill.test_limit = { trigger: { player: "loseMaxHpBefore" }, content: vm.runInContext(cancel ?
+            "(async function(event, trigger) { trigger.cancel(); })" :
+            "(async function(event, trigger) { trigger.num = 0; })", f.ctx) };
+        q.addSkill("test_limit"); await f.slash(p, q);
+        assert.equal(q.maxHp, 4); assert.equal(q.hp, 6);
+        assert.equal(p.drawn, 0); assert.equal(p.hp, 5, "current HP comparison occurs after the effect's recovery");
+    }
+});
+test("only the current Sha target's actual limit reduction suppresses its failure reward", async () => {
+    for (const reduceTarget of [false, true]) {
+        const f = fixture(), p = f.player("owner", true), q = f.player("target"), other = f.player("other"); await f.start();
+        p.limitVictim = reduceTarget ? q : other;
+        f.lib.skill.test_sha_limit = { trigger: { player: "shaHit" }, content: vm.runInContext(
+            "(async function(event, trigger, player) { trigger.unhurt = true; await player.limitVictim.loseMaxHp(1); })", f.ctx) };
+        p.addSkill("test_sha_limit"); await f.slash(p, q);
+        assert.equal(q.maxHp, reduceTarget ? 3 : 4); assert.equal(other.maxHp, reduceTarget ? 4 : 3);
+        assert.equal(p.drawn, reduceTarget ? 0 : 1); assert.equal(p.hp, 4);
+    }
+});
+test("a real reduction later restored still suppresses the failure reward", async () => {
+    const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start();
+    f.lib.skill.test_restore_limit = { trigger: { player: "loseMaxHpAfter" }, content: vm.runInContext(
+        "(async function(event, trigger, player) { await player.gainMaxHp(trigger.num); })", f.ctx) };
+    q.addSkill("test_restore_limit"); await f.slash(p, q);
+    assert.equal(q.maxHp, 4); assert.equal(q.hp, 5); assert.equal(p.drawn, 0); assert.equal(p.hp, 4);
+});
+test("a Sha neutralized by an effect rewards only after that effect finishes", async () => {
+    const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start();
+    f.lib.skill.test_neutralize = { trigger: { player: "useCardToBegin" }, content: vm.runInContext(
+        "(async function(event, trigger, player) { await trigger.neutralize(); player.drawnDuringNeutralize = player.drawn; })", f.ctx) };
+    p.addSkill("test_neutralize"); await f.slash(p, q);
+    assert.equal(p.drawnDuringNeutralize, 0); assert.equal(p.drawn, 1); assert.equal(q.maxHp, 4);
+});
+test("a Sha cancelled before its content still gives one failure reward", async () => {
+    const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start();
+    f.lib.skill.test_cancel_sha = { trigger: { player: "shaBefore" }, content: vm.runInContext(
+        "(async function(event, trigger) { trigger.cancel(); })", f.ctx) };
+    p.addSkill("test_cancel_sha"); await f.slash(p, q);
+    assert.equal(p.drawn, 1); assert.equal(q.maxHp, 4);
+});
+test("native target exclusion and target ignoring each count as one failed Sha effect", async () => {
+    for (const excluded of [false, true]) {
+        const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start();
+        if (!excluded) f.lib.card.sha.ignoreTarget = () => true;
+        await f.cardTarget(p, q, "sha", excluded);
+        assert.equal(p.drawn, 1); assert.equal(q.maxHp, 4);
+    }
+});
+test("another player's Sha never grants the owner an outcome reward", async () => {
+    const f = fixture(), p = f.player("owner", true), other = f.player("other"); await f.start();
+    await f.slash(other, p); assert.equal(p.drawn, 0); assert.equal(p.hp, 3);
 });
 test("Caisheng costs 0,1,2 per turn and never rewards removed Longyou", async () => {
     const f = fixture(), p = f.player("owner", true), q = f.player("donor"); await f.start();
@@ -704,6 +805,6 @@ test("complete extension registration, portrait, skill names and pinyin", async 
 (async () => {
     for (const { name, run } of cases) { await run(); console.log("PASS " + name); }
     console.log(JSON.stringify({ suite: "baichi_engine", passed: cases.length, engine,
-        native: ["GameEvent", "GameEventManager", "ContentCompiler", "Player HP methods", "HP contents", "card filters"],
+        native: ["GameEvent", "GameEventManager", "ContentCompiler", "Player HP methods", "HP contents", "standard cards and Guanshi Axe", "card filters"],
         adapters: ["trigger selection", "UI", "network", "card use"], browserAcceptance: false }));
 })().catch(error => { console.error(error); process.exitCode = 1; });
