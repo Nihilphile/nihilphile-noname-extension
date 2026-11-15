@@ -931,6 +931,65 @@ test("AI override is absent without Mingsi or when damage replacement is bypasse
     source.addSkill("nihil_mingsi"); source.skillTags = { jueqing: true };
     assert.equal(f.aiChoice(target, { player: source, target, card: { name: "sha" } }).ai1(), 3);
 });
+test("fixed max HP blocks direct assignments before any update or death check", async () => {
+    const f = fixture(), p = f.player("owner", true); await f.start();
+    for (const value of [0, -10, 7, NaN, Infinity]) {
+        p.maxHp = value;
+        assert.equal(p.maxHp, 1, "the attempted value must never become observable");
+        assert.equal(p.hp, 4); assert.equal(p.countMark(MARK), 3);
+    }
+    p.maxHp--; assert.equal(p.maxHp, 1); p.maxHp += 100; assert.equal(p.maxHp, 1);
+});
+test("max-HP gain and loss are cancelled before native Begin and cannot kill Chi Bai", async () => {
+    const f = fixture(), p = f.player("owner", true), q = f.player("ordinary"); await f.start();
+    for (const num of [1, 2, 100]) { await p.loseMaxHp(num); await p.gainMaxHp(num); }
+    assert.equal(p.maxHp, 1); assert.equal(p.hp, 4); assert.equal(p.countMark(MARK), 3); assert.equal(p.dyingCalled, undefined);
+    assert.ok(!f.trace.some(row => ["loseMaxHpBegin", "gainMaxHpBegin"].includes(row[1]) && row[2] === "owner"));
+    await q.loseMaxHp(1); assert.equal(q.maxHp, 3); await q.gainMaxHp(2); assert.equal(q.maxHp, 5);
+});
+test("write barrier survives native max-HP content invoked without Before triggers", async () => {
+    const f = fixture(), p = f.player("owner", true); await f.start();
+    const next = f.game.createEvent("bypass", false); next.player = p; next.num = 999;
+    next.setContent(vm.runInContext("(async function(event) { await lib.element.content.loseMaxHp(event); })", f.ctx));
+    await next;
+    assert.equal(p.maxHp, 1); assert.equal(p.hp, 4); assert.equal(p.dyingCalled, undefined);
+});
+test("fixed max HP preserves Longyou recovery and ordinary lethal HP loss", async () => {
+    const f = fixture(), p = f.player("owner", true), q = f.player("attacker"); await f.start();
+    await p.recover(2); assert.equal(p.hp, 6); assert.equal(p.maxHp, 1); assert.equal(p.countMark(MARK), 5);
+    await p.damage({ num: 5, source: q }); assert.equal(p.hp, 1); assert.equal(p.countMark(MARK), 0);
+    await p.loseHp(1); assert.equal(p.hp, 0); assert.equal(p.dyingCalled, true); assert.equal(p.maxHp, 1);
+});
+test("another Chi Bai cannot reduce the fixed maximum; failed Sha still rewards its source", async () => {
+    const f = fixture(), source = f.player("source", true), target = f.player("target", true); await f.start();
+    await f.slash(source, target);
+    assert.equal(target.maxHp, 1); assert.equal(target.hp, 6); assert.equal(target.dyingCalled, undefined);
+    assert.equal(source.hp, 5); assert.equal(source.drawn, 0);
+});
+test("serialized initialization broadcast installs the barrier on a separate client", async () => {
+    const server = fixture(), p = server.player("server", true), broadcasts = [];
+    server.game.broadcast = (fn, ...args) => broadcasts.push({ fn, args }); await server.start();
+    const packet = broadcasts.find(item => item.fn.toString().includes("nihilBaichiMaxHp.lock")); assert.ok(packet);
+    const client = fixture(), peer = client.player("client"); peer.hp = peer.maxHp = 1; client.give(peer, 3);
+    vm.runInContext("(" + packet.fn.toString() + ")", client.ctx)(peer);
+    Object.assign(peer, { maxHp: 0, hp: 4 }); peer.$update();
+    assert.equal(peer.maxHp, 1); assert.equal(peer.hp, 4); assert.equal(peer.countMark(MARK), 3);
+    assert.equal(JSON.parse(JSON.stringify({ maxHp: peer.maxHp })).maxHp, 1);
+});
+test("native reinit releases the barrier when leaving Chi Bai and reinstalls on remote entry", async () => {
+    const f = fixture(), p = f.player("owner", true); await f.start();
+    f.lib.character = { nihil_baichi: ["female", "shen", 1, ["nihil_shengyu", "nihil_mingsi", "nihil_caisheng"]], ordinary: ["male", "wei", 4, []] };
+    f.get.infoMaxHp = value => value; f.get.skillState = () => ({});
+    Object.assign(p, { name: "nihil_baichi", name1: "nihil_baichi", skin: { name: "nihil_baichi" },
+        isUnseen: () => false, $reinit() {},
+        removeSkill(id) { this.skills = this.skills.filter(s => s !== id); if (typeof f.lib.skill[id]?.onremove === "function") f.lib.skill[id].onremove(this); },
+    });
+    p.reinit("nihil_baichi", "ordinary"); assert.equal(p.maxHp, 4);
+    p.maxHp = 3; assert.equal(p.maxHp, 3);
+    p.reinit("ordinary", "nihil_baichi", null, true); assert.equal(p.maxHp, 1);
+    p.maxHp = 0; assert.equal(p.maxHp, 1);
+});
+
 test("complete extension registration, portrait, skill names and pinyin", async () => {
     const f = fixture();
     const imported = {};

@@ -102,7 +102,7 @@ game.import("extension", function (lib, game, ui, get, ai, _status) {
         package: {
             intro: "Nihilphile custom character pack",
             author: "Nihilphile",
-            version: "2.2.0",
+            version: "2.3.0",
             diskURL: "",
             forumURL: "",
         },

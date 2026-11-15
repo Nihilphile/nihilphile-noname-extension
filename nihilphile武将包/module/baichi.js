@@ -17,7 +17,60 @@
         return fieldActive() && !player.storage.nohp && player.hp >= player.maxHp;
     }
 
+    function isBaichi(player) {
+        return [player.name, player.name1, player.name2].includes("nihil_baichi");
+    }
+
+    function installFixedMaxHp() {
+        if (lib.nihilBaichiMaxHp) return lib.nihilBaichiMaxHp;
+        var locks = new WeakMap();
+        function lock(player) {
+            var previous = Object.getOwnPropertyDescriptor(player, "maxHp");
+            var entry = locks.get(player);
+            if (entry && previous && previous.get === entry.getter) return;
+            var getter = function () { return 1; };
+            Object.defineProperty(player, "maxHp", {
+                configurable: true,
+                enumerable: true,
+                get: getter,
+                set: function () {},
+            });
+            locks.set(player, { getter: getter, previous: previous });
+        }
+        function unlock(player) {
+            var entry = locks.get(player);
+            if (!entry) return;
+            var current = Object.getOwnPropertyDescriptor(player, "maxHp");
+            if (current && current.get === entry.getter) {
+                var previous = entry.previous;
+                Object.defineProperty(player, "maxHp", previous && !("value" in previous) ? previous :
+                    Object.assign({ configurable: true, enumerable: true, writable: true }, previous, { value: 1 }));
+            }
+            locks.delete(player);
+        }
+        var proto = lib.element.Player.prototype;
+        ["init", "reinit", "uninit"].forEach(function (name) {
+            var original = proto[name];
+            if (typeof original !== "function") return;
+            proto[name] = function () {
+                var from = arguments[0], to = arguments[1];
+                var becomingBaichi = name === "init" ? [arguments[0], arguments[1]].includes("nihil_baichi") :
+                    name === "reinit" && [this.name1 || this.name, this.name2].map(function (current) {
+                        return current === from ? to : current;
+                    }).includes("nihil_baichi");
+                // Release before native initialization assigns another character's max HP.
+                if (name === "init" || name === "uninit" || (name === "reinit" && !becomingBaichi)) unlock(this);
+                if (becomingBaichi) lock(this);
+                try { return original.apply(this, arguments); }
+                finally { if (name !== "uninit" && isBaichi(this)) lock(this); }
+            };
+        });
+        lib.nihilBaichiMaxHp = { lock: lock, unlock: unlock };
+        return lib.nihilBaichiMaxHp;
+    }
+
     function installRecovery() {
+        installFixedMaxHp();
         window.nihilLongyouHp.install(lib, game, ui, get, ai, _status);
         var prototype = lib.element.Player.prototype;
         if (!prototype.recover._nihilShengyu) {
@@ -232,7 +285,29 @@
             forced: true,
             trigger: { global: "gameStart", player: "enterGame" },
             firstDo: true,
-            init: function () { installRecovery(); },
+            init: function (player) {
+                installRecovery();
+                lib.nihilBaichiMaxHp.lock(player);
+                game.broadcast(function (current) { lib.nihilBaichiMaxHp.lock(current); }, player);
+            },
+            onremove: function (player) {
+                if (!isBaichi(player)) lib.nihilBaichiMaxHp.unlock(player);
+            },
+            group: ["nihil_shengyu_maxhp"],
+            subSkill: {
+                maxhp: {
+                    persevereSkill: true,
+                    forced: true,
+                    popup: false,
+                    firstDo: true,
+                    priority: 10000,
+                    trigger: { player: ["loseMaxHpBefore", "gainMaxHpBefore"] },
+                    async content(event, trigger, player) {
+                        lib.nihilBaichiMaxHp.lock(player);
+                        trigger.cancel();
+                    },
+                },
+            },
             filter: function (event, player) { return !player.storage.nihil_shengyu_started; },
             async content(event, trigger, player) {
                 player.storage.nihil_shengyu_started = true;
@@ -438,7 +513,7 @@
         translate: {
             nihil_baichi: "螭白",
             nihil_shengyu: "生域",
-            nihil_shengyu_info: "持恒技，所有角色回复体力可超出体力上限，每溢出1点转化为其一层“龙佑”。每层“龙佑”计入额外1点当前体力，参与所有技能的当前体力计算及通常手牌上限，但不增加体力上限；损失体力时优先消耗。游戏开始时，你获得3层“龙佑”。满体力不阻止回复，满体力角色也可使用【桃】。",
+            nihil_shengyu_info: "持恒技，你的体力上限恒为1。所有角色回复体力可超出体力上限，每溢出1点转化为其一层“龙佑”。每层“龙佑”计入额外1点当前体力，参与所有技能的当前体力计算及通常手牌上限，但不增加体力上限；损失体力时优先消耗。游戏开始时，你获得3层“龙佑”。满体力不阻止回复，满体力角色也可使用【桃】。",
             nihil_longyou: "龙佑",
             nihil_mingsi: "命祀",
             nihil_mingsi_info: "锁定技，你造成伤害时，防止之，改为令受伤角色减少等量体力上限，然后回复两倍于此伤害数值的体力。你的【杀】未使目标减少体力上限时，若你的当前体力小于该目标，你回复1点体力，否则你摸1张牌（对每名目标的每次结算结束后分别判断，无次数限制）。",
