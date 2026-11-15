@@ -37,12 +37,13 @@ function element() {
 }
 
 function fixture(zusOrder) {
-    const lib = { element: { VCard: class { constructor(card) { Object.assign(this, card); } } }, card: {}, skill: {}, config: {}, translate: {}, phaseName: [], natureAudio: { hujia_damage: {}, damage: {} },
+    const lib = { element: { VCard: class { constructor(card) { Object.assign(this, card); } } }, card: {}, skill: { global: ["nihil_baichi_ai"] }, config: {}, translate: {}, phaseName: [], natureAudio: { hujia_damage: {}, damage: {} },
         natureSeparator: "|", linked: ["fire", "thunder"], announce: { publish() {} } };
     const history = { everything: [], changeHp: [] }, trace = [];
     const game = { players: [], dead: [], globalEventHandlers: { addHandlerToEvent() {} },
         getGlobalHistory(key) { return key ? history[key] : history; },
         hasPlayer(filter) { return this.players.some(p => p.isIn() && filter(p)); },
+        expandSkills(ids) { for (const id of [...ids]) for (const group of lib.skill[id]?.group || []) if (!ids.includes(group)) ids.push(group); return ids; },
         log() {}, callHook() {}, addVideo() {}, broadcast() {}, broadcastAll() {}, async delayx() {},
         hasNature(card, nature) { return nature ? card.nature === nature : !!card.nature; },
         import(type, factory) { const pack = factory(); Object.assign(lib.card, pack.card); Object.assign(lib.skill, pack.skill); },
@@ -62,6 +63,7 @@ function fixture(zusOrder) {
     };
     const _status = { dying: [], dieClose: [], pauseManager: { async waitPause() {} } };
     const get = { name: card => card.name, info: card => typeof card === "string" ? lib.skill[card] || lib.card[card] : lib.card[card.name],
+        mode: () => lib.config.mode || "identity", order: () => 3,
         event: () => _status.event, prompt: id => id,
         translation: obj => Array.isArray(obj) ? obj.map(p => p.playerid).join("、") : obj.playerid || String(obj), cnNumber: String,
         autoViewAs: card => card, copy: value => Array.isArray(value) ? value.slice() : value,
@@ -72,13 +74,13 @@ function fixture(zusOrder) {
         distance: (player, target) => target.distance || 1,
         itemtype: value => value?.playerid ? "player" : value?.physical ? "card" : value?.name && value?.start ? "event" : undefined,
         is: { newLayout: () => false, object: value => value && typeof value === "object", sameNature: () => false },
-        attitude: (player, target) => player === target ? 5 : -5,
+        attitude: (player, target) => player === target ? 5 : player.attitudeOverride ?? -5,
         effect: (target, card, player) => target === player ? -1 : 1,
         damageEffect: () => -1,
         evtprompt(event, prompt) { event.prompt = prompt; },
     };
     const ctx = vm.createContext({ lib, game, get, _status, window: {}, ui: { selected: { targets: [] } }, ai: {}, console,
-        setTimeout: callback => callback(), HTMLDivElement: class {}, CacheContext: { inject() {} } });
+        setTimeout: callback => callback(), HTMLDivElement: class {}, CacheContext: { inject() {}, requireCacheContext() { return { get, delegate: object => object }; } } });
     vm.runInContext(`
         const AsyncFunction = (async function(){}).constructor;
         const GeneratorFunction = (function*(){}).constructor;
@@ -136,7 +138,7 @@ function fixture(zusOrder) {
         for (const [name, sub] of Object.entries(skill.subSkill || {})) lib.skill[id + "_" + name] = sub;
     }
     function expanded(player) {
-        return player.skills.flatMap(id => [id, ...(Array.isArray(lib.skill[id]?.group) ? lib.skill[id].group : [])]);
+        return (player.skills.concat(lib.skill.global)).flatMap(id => [id, ...(Array.isArray(lib.skill[id]?.group) ? lib.skill[id].group : [])]);
     }
     // UI, network transport and trigger selection are adapters. The event queue,
     // compilers, player HP methods, HP contents and card legality filters are native.
@@ -193,9 +195,12 @@ function fixture(zusOrder) {
             inGame: true, skipList: [], stat: [{ card: {}, skill: {} }], drawn: 0,
             actionHistory: [{ damage: [], sourceDamage: [] }], used: [],
             isIn() { return this.inGame; }, isDead() { return !this.inGame; }, isAlive() { return this.inGame; }, isOut() { return false; },
-            hasSkill(id) { return expanded(this).includes(id); }, hasSkillTag() { return false; },
+            getSkills() { return this.skills.slice(); },
+            hasSkill(id) { return expanded(this).includes(id); }, hasSkillTag(id) { return !!this.skillTags?.[id]; },
+            isPhaseUsing() { return !!this.phaseUsing; },
+            getCards() { return this.hand || []; }, canIgnoreHandcard(card) { return !!card.ignored; },
             inRange(target) { return (target.distance || 1) <= 1; },
-            isLinked() { return false; }, countCards() { return this.handCards || 0; },
+            isLinked() { return false; }, countCards() { return this.hand ? this.hand.length : this.handCards || 0; },
             mayHaveShan() { return this.shanResponses?.filter(Boolean).length || this.aoeResponses?.filter(Boolean).length || 0; },
             mayHaveSha() { return this.aoeResponses?.filter(Boolean).length || 0; },
             node: { hp: element(), count: element() }, classList: element().classList, updateMarks() {},
@@ -213,18 +218,28 @@ function fixture(zusOrder) {
                 next.setContent(vm.runInContext("(async function(event, trigger, player) { player.dyingCalled = true; player.inGame = false; })", ctx)); return next; },
             die() { return this.dying(); },
             chooseToUse() {
-                const next = game.createEvent("testShanChoice", false); next.player = this;
+                const next = game.createEvent(this.aiControlled ? "chooseToUse" : "testShanChoice", this.aiControlled ? undefined : false); next.player = this;
+                next.aiControlled = !!this.aiControlled;
                 next.response = this.shanResponses?.shift() || false;
                 next.setContent(vm.runInContext(`(async function(event) {
+                    if (event.aiControlled) {
+                        lib.skill.nihil_baichi_ai.onChooseToUse(event);
+                        event.response = event.ai1({ name: "shan" }) > 0;
+                    }
                     event.result = event.response ? { bool: true, card: { name: "shan", isCard: true }, cards: [], result: "shaned" } : { bool: false };
                 })`, ctx));
                 return next;
             },
             chooseToRespond() {
                 const next = game.createEvent("chooseToRespond"); next.player = this;
+                next.aiControlled = !!this.aiControlled;
                 next.response = this.aoeResponses?.shift() || false;
                 next.responseName = _status.event.name === "wanjian" ? "shan" : "sha";
                 next.setContent(vm.runInContext(`(async function(event) {
+                    if (event.aiControlled) {
+                        lib.skill.nihil_baichi_ai.onChooseToRespond(event);
+                        event.response = event.ai1({ name: event.responseName }) > 0;
+                    }
                     event.result = event.response ? { bool: true, card: { name: event.responseName || "sha", isCard: true }, cards: [] } : { bool: false };
                 })`, ctx));
                 return next;
@@ -330,7 +345,24 @@ function fixture(zusOrder) {
         for (const p of game.players) if (p.hasSkill("nihil_shengyu")) lib.skill.nihil_shengyu.init(p);
         await fire("gameStart", game.players[0]);
     }
-    return { game, get, lib, ctx, mod, player, start, fire, runSkill, slash, aoe, cardTarget, give, endTurn, trace, compiler };
+    function nativeAiEffects() {
+        const source = read("noname/get/index.js");
+        for (const name of ["result", "effect", "effect_use"]) {
+            const begin = source.indexOf("  " + name + "("), end = source.indexOf("\n  }", begin) + 4;
+            get[name] = vm.runInContext("({" + source.slice(begin, end) + "})." + name, ctx);
+        }
+    }
+    function aiChoice(owner, effect, kind = "chooseToUse", extra = {}) {
+        const parent = new GameEvent(effect.card.name, false, manager);
+        Object.assign(parent, { type: "card" }, effect);
+        const choice = new GameEvent(kind, false, manager);
+        choice.parent = parent; choice.player = owner;
+        Object.assign(choice, { type: kind === "chooseToUse" ? "respondShan" : undefined, ai1: () => 3 }, extra);
+        manager.setStatusEvent(choice);
+        lib.skill.nihil_baichi_ai[kind === "chooseToRespond" ? "onChooseToRespond" : "onChooseToUse"](choice);
+        return choice;
+    }
+    return { nativeAiEffects, aiChoice, game, get, lib, ctx, mod, player, start, fire, runSkill, slash, aoe, cardTarget, give, endTurn, trace, compiler };
 }
 
 test("Longyou is real current HP for direct reads, native queries and hand limit", async () => {
@@ -783,6 +815,122 @@ test("HP/recovery adapters install once and ordinary full-health checks resume w
     q.hp = 3; await q.recover(2); assert.equal(q.hp, 4); assert.equal(q.countMark(MARK), 0);
 });
 
+test("response AI verifies fixed identities and uses current HP without adding Longyou twice", async () => {
+    for (const [a, b] of [["fan", "fan"], ["zhu", "zhong"], ["zhong", "zhu"], ["zhong", "zhong"]]) {
+        const f = fixture(), source = f.player("source", true), target = f.player("target"); await f.start(); f.nativeAiEffects();
+        source.identity = a; target.identity = b; source.identityShown = target.identityShown = false; target.hp = 4;
+        const choice = f.aiChoice(target, { player: source, target, card: { name: "sha" } });
+        assert.ok(choice.ai1({ name: "shan" }) < 0, a + "/" + b + " must accept at full HP");
+        assert.equal(f.lib.skill.bagua_skill.check(choice, target), false, "native Bagua AI must also decline");
+    }
+    for (const [a, b] of [["nei", "fan"], ["fan", "nei"], ["fan", "zhong"], ["unknown", "unknown"]]) {
+        const f = fixture(), source = f.player("source", true), target = f.player("target"); await f.start(); f.nativeAiEffects();
+        source.identity = a; target.identity = b; target.attitudeOverride = 5;
+        target.hp = 2; assert.ok(f.aiChoice(target, { player: source, target, card: { name: "sha" } }).ai1({ name: "shan" }) < 0);
+        f.give(target, 1); assert.equal(target.hp, 3);
+        assert.ok(f.aiChoice(target, { player: source, target, card: { name: "sha" } }).ai1({ name: "shan" }) > 0);
+    }
+});
+test("response AI avoids lethal max-HP loss and actual native healing prohibitions", async () => {
+    const f = fixture(), source = f.player("source", true), target = f.player("target"); await f.start(); f.nativeAiEffects();
+    source.identity = target.identity = "fan";
+    target.hp = 1; target.maxHp = 2;
+    assert.ok(f.aiChoice(target, { player: source, target, card: { name: "sha" }, baseDamage: 2 }).ai1({ name: "shan" }) > 0);
+    assert.ok(f.aiChoice(target, { player: source, target, card: { name: "sha" }, baseDamage: 1 }).ai1({ name: "shan" }) < 0);
+    f.lib.skill.test_noheal = { ai: { effect: { target: (card) => f.get.tag(card, "recover") ? "zeroplayertarget" : undefined } } };
+    target.addSkill("test_noheal");
+    assert.ok(f.aiChoice(target, { player: source, target, card: { name: "sha" } }).ai1({ name: "shan" }) > 0);
+});
+test("response AI counts fire armor, weapon bonus and Silver Lion before max-HP safety", async () => {
+    const f = fixture(), source = f.player("source", true), target = f.player("target"); await f.start(); f.nativeAiEffects();
+    source.identity = target.identity = "fan"; target.maxHp = 2; target.hp = 1;
+    target.addSkill("tengjia2"); f.lib.skill.tengjia2 = {};
+    assert.ok(f.aiChoice(target, { player: source, target, card: { name: "sha", nature: "fire" } }).ai1({ name: "shan" }) > 0);
+    target.skills = []; source.addSkill("guding_skill"); f.lib.skill.guding_skill = {};
+    assert.ok(f.aiChoice(target, { player: source, target, card: { name: "sha" } }).ai1({ name: "shan" }) > 0);
+    target.addSkill("baiyin_skill"); f.lib.skill.baiyin_skill = {};
+    assert.ok(f.aiChoice(target, { player: source, target, card: { name: "sha" } }).ai1({ name: "shan" }) < 0);
+});
+test("AI callbacks drive native Sha and AOE response outcomes instead of altering card rules", async () => {
+    for (const name of ["sha", "nanman", "wanjian"]) for (const strong of [true, false]) {
+        const f = fixture(), source = f.player("source", true), target = f.player("target"); await f.start(); f.nativeAiEffects();
+        source.identity = "fan"; target.identity = strong ? "fan" : "nei"; target.aiControlled = true;
+        if (name === "sha") await f.slash(source, target);
+        else await f.aoe(source, [target], name);
+        assert.equal(target.maxHp, strong ? 3 : 4); assert.equal(target.hp, strong ? 5 : 4);
+        assert.equal(source.drawn, !strong && name === "sha" ? 1 : 0);
+    }
+});
+test("Duel AI responds according to the current opposing damage source", async () => {
+    for (const strong of [true, false]) {
+        const f = fixture(), source = f.player("source", true), target = f.player("target"); await f.start(); f.nativeAiEffects();
+        source.identity = "fan"; target.identity = strong ? "fan" : "nei"; target.aiControlled = true;
+        await f.aoe(source, [target], "juedou");
+        assert.equal(target.maxHp, strong ? 3 : 4); assert.equal(target.hp, strong ? 5 : 4);
+    }
+});
+test("own-target Wuxie AI respects cancellation direction and leaves third-party decisions native", async () => {
+    const f = fixture(), source = f.player("source", true), target = f.player("target"), other = f.player("other"); await f.start(); f.nativeAiEffects();
+    source.identity = target.identity = "fan"; const card = { name: "nanman" };
+    const map = { player: source, target, card };
+    assert.ok(f.aiChoice(target, { player: source, target, card }, "chooseToUse", { type: "wuxie", state: 1, info_map: map }).ai1() < 0);
+    assert.ok(f.aiChoice(target, { player: source, target, card }, "chooseToUse", { type: "wuxie", state: -1, info_map: map }).ai1() > 0);
+    assert.equal(f.aiChoice(other, { player: source, target, card }, "chooseToUse", { type: "wuxie", state: 1, info_map: map }).ai1(), 3);
+});
+test("enemy full-health Peach AI requires a real discard reduction and reevaluates after healing", async () => {
+    const f = fixture(), source = f.player("source", true), target = f.player("target"); await f.start(); f.nativeAiEffects();
+    source.identity = "fan"; target.identity = "zhong"; target.phaseUsing = true;
+    const peach = { name: "tao" }; target.hand = [peach, {}, {}, {}];
+    let choice = f.aiChoice(target, { player: target, target, card: peach }, "chooseToUse", { type: "phase", ai1: () => 7 });
+    assert.ok(choice.ai1(peach) < 0); assert.equal(f.lib.card.tao.ai.result.target_use(target, target, peach), 0);
+    assert.equal(f.get.effect_use(target, peach, target, target), 0);
+    f.lib.skill.peach_bonus = { ai: { effect: { player: () => [1, 100] } } }; target.addSkill("peach_bonus");
+    assert.equal(f.get.effect_use(target, peach, target, target), 0, "unrelated use bonuses cannot bypass the agreed keep-Peach rule");
+    target.hand.push({}, {}); choice = f.aiChoice(target, { player: target, target, card: peach }, "chooseToUse", { type: "phase" });
+    assert.ok(choice.ai1(peach) > 0); assert.equal(f.lib.card.tao.ai.result.target_use(target, target, peach), 2);
+    assert.ok(f.get.effect_use(target, peach, target, target) > 0);
+    assert.equal(target.hp, 4); assert.equal(target.countMark(MARK), 0, "projection must not mutate real HP or marks");
+    target.hand = target.hand.filter(c => c !== peach); await target.recover(1);
+    choice = f.aiChoice(target, { player: target, target, card: peach }, "chooseToUse", { type: "phase" });
+    assert.ok(choice.ai1(peach) < 0);
+});
+test("full-health Peach AI preserves rescue, wounded use, ally use and other-card scores", async () => {
+    const f = fixture(), source = f.player("source", true), target = f.player("target"); await f.start(); f.nativeAiEffects();
+    source.identity = "fan"; target.identity = "zhong"; target.phaseUsing = true; target.hand = [{ name: "tao" }];
+    const peach = target.hand[0];
+    let choice = f.aiChoice(target, { player: target, target, card: peach }, "chooseToUse", { type: "phase", ai1: () => 7 });
+    assert.equal(choice.ai1({ name: "sha" }), 7);
+    target.hp = 3; assert.equal(choice.ai1(peach), 7);
+    target.hp = 4; target.identity = "fan"; assert.equal(choice.ai1(peach), 7);
+    target.identity = "zhong";
+    choice = f.aiChoice(target, { player: target, target, card: peach }, "chooseToUse", { type: "dying", ai1: () => 7 });
+    assert.equal(choice.ai1(peach), 7);
+    assert.equal(f.lib.filter.cardEnabled(peach, target), true, "the AI policy must not forbid human Peach use");
+});
+
+test("Peach discard projection respects fixed hand limits, ignored cards and virtual materials", async () => {
+    const f = fixture(), source = f.player("source", true), target = f.player("target"); await f.start(); f.nativeAiEffects();
+    source.identity = "fan"; target.identity = "zhong"; target.phaseUsing = true;
+    f.lib.skill.fixed_limit = { mod: { maxHandcardBase: () => 4 } }; target.addSkill("fixed_limit");
+    const peach = { name: "tao" }; target.hand = [peach, {}, {}, {}, {}, {}];
+    let choice = f.aiChoice(target, { player: target, target, card: peach }, "chooseToUse", { type: "phase" });
+    assert.ok(choice.ai1(peach) > 0);
+    assert.ok(choice.ai1({ name: "tao", cards: [] }) < 0, "free Peach cannot reduce discard under a fixed limit");
+    peach.ignored = true;
+    assert.ok(choice.ai1(peach) < 0, "an ignored Peach saves no counted hand card under a fixed limit");
+    assert.equal(target.hp, 4); assert.equal(target.countMark(MARK), 0);
+    target.skills = []; target.hand = [peach, {}, {}, {}, {}, {}];
+    choice = f.aiChoice(target, { player: target, target, card: peach }, "chooseToUse", { type: "phase" });
+    const remote = vm.runInNewContext("(" + choice.ai1.toString() + ")", { get: f.get, lib: f.lib });
+    assert.ok(remote(peach) > 0, "the installed card callback has no captured module-local bindings");
+});
+test("AI override is absent without Mingsi or when damage replacement is bypassed", async () => {
+    const f = fixture(), source = f.player("source", true), target = f.player("target"); await f.start(); f.nativeAiEffects();
+    source.identity = target.identity = "fan";
+    source.skills = []; assert.equal(f.aiChoice(target, { player: source, target, card: { name: "sha" } }).ai1(), 3);
+    source.addSkill("nihil_mingsi"); source.skillTags = { jueqing: true };
+    assert.equal(f.aiChoice(target, { player: source, target, card: { name: "sha" } }).ai1(), 3);
+});
 test("complete extension registration, portrait, skill names and pinyin", async () => {
     const f = fixture();
     const imported = {};

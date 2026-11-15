@@ -59,6 +59,14 @@
             return fullRecovery(target) ||
                 (typeof modTarget === "function" ? modTarget.apply(this, arguments) : modTarget);
         };
+        var targetUse = tao.ai.result.target_use;
+        tao.ai.result.target_use = function (player, target, card) {
+            if (player === target) {
+                var use = fullPeachDecision(player, card);
+                if (use !== undefined) return use ? 2 : 0;
+            }
+            return typeof targetUse === "function" ? targetUse.apply(this, arguments) : targetUse;
+        };
         tao._nihilShengyu = true;
     }
 
@@ -96,9 +104,131 @@
         else await player.draw(1);
     }
 
+    function strongAllies(source, target) {
+        if (get.mode() !== "identity") return false;
+        var a = source.identity, b = target.identity;
+        return (a === "fan" && b === "fan") ||
+            (["zhu", "zhong"].includes(a) && ["zhu", "zhong"].includes(b));
+    }
+
+    function enemyOf(source, target) {
+        if (strongAllies(source, target)) return false;
+        if (get.mode() === "identity") {
+            var a = source.identity, b = target.identity;
+            if ((a === "fan" && ["zhu", "zhong"].includes(b)) ||
+                (b === "fan" && ["zhu", "zhong"].includes(a))) return true;
+        }
+        return get.attitude(target, source) < 0;
+    }
+
+    function recoveryWorks(source, target) {
+        return !target.storage.nohp && get.effect(target, { name: "recover" }, source, target) > 0;
+    }
+
+    function expectedReduction(effect, source, target) {
+        var num = (typeof effect.baseDamage === "number" ? effect.baseDamage : 1) + (effect.extraDamage || 0);
+        if (num <= 0) return 0;
+        var card = effect.card;
+        if (get.name(card) === "sha" && source.hasSkill("guding_skill") && target.countCards("h") === 0) num++;
+        var ignoreArmor = target.hasSkillTag("unequip2") || source.hasSkillTag("unequip", false,
+            { name: get.name(card), target: target, card: card });
+        if (!ignoreArmor) {
+            if (target.hasSkill("tengjia2") && game.hasNature(card, "fire")) num++;
+            if (target.hasSkill("baiyin_skill")) num = Math.min(num, 1);
+        }
+        return num;
+    }
+
+    function defendMingsi(effect, source, target) {
+        if (!alive(source) || !alive(target) || source === target || !source.hasSkill("nihil_mingsi") ||
+            target.hasSkill("nihil_shengyu") || effect.unreal || !effect.card || !get.tag(effect.card, "damage")) return;
+        // These native skills replace damage before Mingsi can execute.
+        if (source.hasSkillTag("jueqing", false, target) || target.hasSkill("gangzhi")) return;
+        var num = expectedReduction(effect, source, target);
+        if (num <= 0) return;
+        if (target.maxHp - num <= 0 || (!fieldActive() && target.hp >= target.maxHp - num) ||
+            !recoveryWorks(source, target)) return true;
+        return !strongAllies(source, target) && target.hp * 2 > target.maxHp;
+    }
+
+    function responseDecision(event) {
+        var effect = event.getParent(), source, target = event.player;
+        if (event.type === "wuxie") {
+            var map = event.info_map || event.respondInfo;
+            if (!map) return;
+            map = map._source || map;
+            // Do not decide rescues for third parties or shared multi-target tricks.
+            if (map.isJudge || map.target !== target || map.multitarget || map.multitargets || !map.card) return;
+            source = map.player;
+            var original = event.getParent(function (current) {
+                return current.type === "card" && current.player === source && current.target === target &&
+                    current.card === map.card;
+            }, true);
+            if (!original) return;
+            var defend = defendMingsi(original, source, target);
+            return defend === undefined ? undefined : (event.state < 0 ? !defend : defend);
+        }
+        if (!effect || effect.type !== "card" || !effect.card) return;
+        var name = get.name(effect.card);
+        if (event.name === "chooseToUse" && event.type === "respondShan" && name === "sha" && effect.target === target) {
+            source = effect.customSource || effect.player;
+        } else if (event.name === "chooseToRespond" && ["nanman", "wanjian", "juedou"].includes(name)) {
+            if (name === "juedou") {
+                if (effect.turn !== target) return;
+                source = effect.source;
+            } else {
+                if (effect.target !== target) return;
+                source = effect.customSource || effect.player;
+            }
+        } else return;
+        return defendMingsi(effect, source, target);
+    }
+
+    function fullPeachDecision(player, card) {
+        if (!player || player.hasSkill("nihil_shengyu") || player.hasSkill("nihil_mingsi") ||
+            !player.isPhaseUsing() || _status.dying.includes(player) || !fullRecovery(player)) return;
+        if (!game.hasPlayer(function (owner) {
+            return owner !== player && owner.hasSkill("nihil_shengyu") && enemyOf(owner, player);
+        })) return;
+        if (!recoveryWorks(player, player)) return false;
+        var hand = player.getCards("h").filter(function (current) { return !player.canIgnoreHandcard(current); });
+        var before = Math.max(0, hand.length - player.getHandcardLimit());
+        if (!before) return false;
+        // Project native hand-limit modifiers without mutating the live player's HP or marks.
+        var projected = Object.create(player);
+        Object.defineProperty(projected, "hp", { value: player.hp + 1 });
+        projected.storage = Object.assign({}, player.storage);
+        projected.storage[MARK] = player.countMark(MARK) + 1;
+        var materials = card && card.cards ? card.cards : card ? [card] : [];
+        var remaining = hand.filter(function (current) { return !materials.includes(current); }).length;
+        return Math.max(0, remaining - projected.getHandcardLimit()) < before;
+    }
+
+    function prepareBaichiChoice(event) {
+        if (event.responded) return;
+        var decision = responseDecision(event);
+        if (decision !== undefined) {
+            event.ai = event.ai1 = decision ? function () { return 10; } : function () { return -10; };
+            event.toUse = event.toRespond = decision;
+        } else if (event.name === "chooseToUse" && event.type === "phase" && !event._nihilBaichiPeachAI) {
+            event._nihilBaichiPeachAI = true;
+            event._nihilBaichiNativeAI1 = event.ai1;
+            event.ai1 = function (card) {
+                var current = get.event();
+                if (get.name(card) === "tao") {
+                    var use = lib.skill.nihil_baichi_ai.peachDecision(current.player, card);
+                    if (use !== undefined) return use ? Math.max(1, get.order(card, current.player)) : -10;
+                }
+                var native = current._nihilBaichiNativeAI1;
+                return typeof native === "function" ? native.apply(this, arguments) : get.order(card, current.player);
+            };
+        }
+    }
+
     var skills = {
         nihil_shengyu: {
             persevereSkill: true,
+            global: "nihil_baichi_ai",
             forced: true,
             trigger: { global: "gameStart", player: "enterGame" },
             firstDo: true,
@@ -123,6 +253,7 @@
             },
         },
         nihil_mingsi: {
+            global: "nihil_baichi_ai",
             locked: true,
             forced: true,
             trigger: { source: "damageBegin4" },
@@ -184,6 +315,28 @@
                 },
             },
             ai: { expose: 0.15 },
+        },
+        nihil_baichi_ai: {
+            charlotte: true,
+            forced: true,
+            popup: false,
+            firstDo: true,
+            priority: 10000,
+            trigger: { player: ["chooseToUseBegin", "chooseToRespondBegin"] },
+            filter: function (event) { return responseDecision(event) !== undefined; },
+            async content(event, trigger) { prepareBaichiChoice(trigger); },
+            onChooseToUse: prepareBaichiChoice,
+            onChooseToRespond: prepareBaichiChoice,
+            peachDecision: fullPeachDecision,
+            ai: {
+                effect: {
+                    player: function (card, player, target) {
+                        if (card && get.name(card) === "tao" && player === target && fullPeachDecision(player, card) === false) {
+                            return "zeroplayertarget";
+                        }
+                    },
+                },
+            },
         },
         nihil_caisheng: {
             enable: "phaseUse",
