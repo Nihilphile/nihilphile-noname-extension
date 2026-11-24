@@ -24,4 +24,4 @@
 
 联机站跟踪 GitHub 的 `codex/baichi-character` 分支。本机开发副本已安装提交钩子，每次提交会推送到 GitHub 同名分支。其他设备可以直接使用 `git push origin HEAD`。推送失败时，本机提交会保留。
 
-服务器约每分钟检查一次发布分支。它会运行便携测试和螭白兼容性测试，在独立浏览器里加载候选版本并检查立绘与标记图。通过后，新建房间采用该次提交。现有房间沿用建房时的版本。可以在[线上版本记录](https://ziqi.198-44-109-93.sslip.io/extension/nihil-releases/current/catalog.json)查看 `version` 字段，与 GitHub 提交号核对。
+发布服务、浏览器验收脚本和 systemd 定时器在 `scripts/ziqi-ci/`。服务器约每分钟检查一次发布分支。它会运行便携测试和螭白兼容性测试，在独立浏览器里加载候选版本并检查立绘与标记图。通过后，新建房间采用该次提交。现有房间沿用建房时的版本。可以在[线上版本记录](https://ziqi.198-44-109-93.sslip.io/extension/nihil-releases/current/catalog.json)查看 `version` 字段，与 GitHub 提交号核对。
