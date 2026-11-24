@@ -24,10 +24,13 @@
     function installFixedMaxHp() {
         if (lib.nihilBaichiMaxHp) return lib.nihilBaichiMaxHp;
         var locks = new WeakMap();
-        function lock(player) {
-            var previous = Object.getOwnPropertyDescriptor(player, "maxHp");
+        function isLocked(player) {
             var entry = locks.get(player);
-            if (entry && previous && previous.get === entry.getter) return;
+            return !!entry && Object.getOwnPropertyDescriptor(player, "maxHp")?.get === entry.getter;
+        }
+        function lock(player) {
+            if (isLocked(player)) return;
+            var previous = Object.getOwnPropertyDescriptor(player, "maxHp");
             var getter = function () { return 1; };
             Object.defineProperty(player, "maxHp", {
                 configurable: true,
@@ -40,8 +43,7 @@
         function unlock(player) {
             var entry = locks.get(player);
             if (!entry) return;
-            var current = Object.getOwnPropertyDescriptor(player, "maxHp");
-            if (current && current.get === entry.getter) {
+            if (isLocked(player)) {
                 var previous = entry.previous;
                 Object.defineProperty(player, "maxHp", previous && !("value" in previous) ? previous :
                     Object.assign({ configurable: true, enumerable: true, writable: true }, previous, { value: 1 }));
@@ -65,7 +67,7 @@
                 finally { if (name !== "uninit" && isBaichi(this)) lock(this); }
             };
         });
-        lib.nihilBaichiMaxHp = { lock: lock, unlock: unlock };
+        lib.nihilBaichiMaxHp = { lock: lock, unlock: unlock, isLocked: isLocked };
         return lib.nihilBaichiMaxHp;
     }
 
@@ -140,6 +142,10 @@
 
     function turnState(player) {
         return player.storage[TURN] || { count: 0, targets: [] };
+    }
+
+    function caishengCost(state) {
+        return 2 * state.count;
     }
 
     function slashTarget(card, player, target, limit) {
@@ -257,6 +263,31 @@
         return Math.max(0, remaining - projected.getHandcardLimit()) < before;
     }
 
+    function prepareAttackTargets(event) {
+        var direct = event.name === "chooseTarget";
+        if (direct && event.getParent().name !== "chooseUseTarget") return;
+        var key = direct ? "ai" : "ai2";
+        if (event._nihilBaichiAttackAI || typeof event[key] !== "function") return;
+        var attacker = event.player;
+        if (!game.hasPlayer(function (owner) {
+            return owner !== attacker && isBaichi(owner) && (strongAllies(owner, attacker) ||
+                (!enemyOf(owner, attacker) && get.attitude(attacker, owner) > 0));
+        })) return;
+        event._nihilBaichiAttackAI = event[key];
+        event[key] = function (target, candidates) {
+            var choice = get.event();
+            var original = choice._nihilBaichiAttackAI;
+            var score = original.apply(this, arguments);
+            // The engine supplies the remaining legal targets only while comparing choices.
+            if (!(score > 0) || !Array.isArray(candidates) || !target || !target.countMark("nihil_longyou")) return score;
+            var card = choice._get_card || get.card();
+            if (!card || !get.tag(card, "damage")) return score;
+            var preferOther = lib.skill.nihil_baichi_ai.preferAttackTarget;
+            return candidates.some(other => preferOther(choice.player, target, other) &&
+                original.call(this, other, candidates) > 0) ? 0 : score;
+        };
+    }
+
     function prepareBaichiChoice(event) {
         if (event.responded) return;
         var decision = responseDecision(event);
@@ -293,8 +324,17 @@
             onremove: function (player) {
                 if (!isBaichi(player)) lib.nihilBaichiMaxHp.unlock(player);
             },
-            group: ["nihil_shengyu_maxhp"],
+            group: ["nihil_shengyu_maxhp", "nihil_shengyu_phase"],
             subSkill: {
+                phase: {
+                    persevereSkill: true,
+                    forced: true,
+                    trigger: { player: ["phaseZhunbeiBegin", "phaseJudgeBegin", "phaseDrawBegin", "phaseUseBegin", "phaseDiscardBegin", "phaseJieshuBegin"] },
+                    filter: function (event, player) { return player.countMark(MARK) === 0; },
+                    async content(event, trigger, player) {
+                        grant(player, 1);
+                    },
+                },
                 maxhp: {
                     persevereSkill: true,
                     forced: true,
@@ -317,15 +357,7 @@
         },
         nihil_longyou: {
             charlotte: true,
-            marktext: "佑",
-            intro: {
-                name: "龙佑",
-                name2: "龙佑",
-                content: function (storage, player) {
-                    return "共有" + player.countMark(MARK) + "层龙佑；当前体力" + player.hp +
-                        "，体力上限" + player.maxHp + "。龙佑计入所有当前体力计算与通常手牌上限，不增加体力上限。损失体力时优先消耗。";
-                },
-            },
+            // No intro: native addMark keeps the count without creating a duplicate badge beside the HP bar.
         },
         nihil_mingsi: {
             global: "nihil_baichi_ai",
@@ -400,7 +432,15 @@
             trigger: { player: ["chooseToUseBegin", "chooseToRespondBegin"] },
             filter: function (event) { return responseDecision(event) !== undefined; },
             async content(event, trigger) { prepareBaichiChoice(trigger); },
-            onChooseToUse: prepareBaichiChoice,
+            onChooseToUse: function (event) {
+                prepareBaichiChoice(event);
+                if (!event.responded) prepareAttackTargets(event);
+            },
+            onChooseTarget: prepareAttackTargets,
+            preferAttackTarget: function (attacker, current, other) {
+                return other.countMark(MARK) < current.countMark(MARK) &&
+                    enemyOf(current, attacker) && enemyOf(other, attacker);
+            },
             onChooseToRespond: prepareBaichiChoice,
             peachDecision: fullPeachDecision,
             ai: {
@@ -416,17 +456,17 @@
         nihil_caisheng: {
             enable: "phaseUse",
             filter: function (event, player) {
-                var cost = turnState(player).count;
+                var cost = caishengCost(turnState(player));
                 return game.hasPlayer(function (target) {
                     return target.countMark(MARK) > (target === player ? cost : 0);
                 });
             },
             prompt: function (event, player) {
-                return "裁生：流失" + turnState(player).count + "点体力，再清空一名角色的龙佑，可视为使用杀";
+                return "裁生：流失" + caishengCost(turnState(player)) + "点体力，再清空一名角色的龙佑，可视为使用杀";
             },
             async content(event, trigger, player) {
                 var state = turnState(player);
-                var cost = state.count;
+                var cost = caishengCost(state);
                 state.count++;
                 player.storage[TURN] = state;
                 player.addTempSkill(TURN, { global: "phaseAfter" });
@@ -465,7 +505,7 @@
                 order: 6,
                 result: {
                     player: function (player) {
-                        var cost = turnState(player).count;
+                        var cost = caishengCost(turnState(player));
                         return cost >= player.hp ? -100 : 1 - cost;
                     },
                 },
@@ -484,6 +524,7 @@
             charlotte: true,
             mark: true,
             marktext: "裁",
+            markimage: "extension/" + EXT_NAME + "/image/mark/baichi_caisheng.png",
             intro: {
                 name: "裁生",
                 content: function (storage, player) {
@@ -513,12 +554,12 @@
         translate: {
             nihil_baichi: "螭白",
             nihil_shengyu: "生域",
-            nihil_shengyu_info: "持恒技，你的体力上限恒为1。所有角色回复体力可超出体力上限，每溢出1点转化为其一层“龙佑”。每层“龙佑”计入额外1点当前体力，参与所有技能的当前体力计算及通常手牌上限，但不增加体力上限；损失体力时优先消耗。游戏开始时，你获得3层“龙佑”。满体力不阻止回复，满体力角色也可使用【桃】。",
+            nihil_shengyu_info: "持恒技，你的体力上限恒为1。所有角色回复体力可超出体力上限，每溢出1点转化为其一层“龙佑”。每层“龙佑”计入额外1点当前体力，参与所有技能的当前体力计算及通常手牌上限，但不增加体力上限；损失体力时优先消耗。游戏开始时，你获得3层“龙佑”。你的任意阶段开始时，若你没有“龙佑”，你获得1层“龙佑”。满体力不阻止回复，满体力角色也可使用【桃】。",
             nihil_longyou: "龙佑",
             nihil_mingsi: "命祀",
             nihil_mingsi_info: "锁定技，你造成伤害时，防止之，改为令受伤角色减少等量体力上限，然后回复两倍于此伤害数值的体力。你的【杀】未使目标减少体力上限时，若你的当前体力小于该目标，你回复1点体力，否则你摸1张牌（对每名目标的每次结算结束后分别判断，无次数限制）。",
             nihil_caisheng: "裁生",
-            nihil_caisheng_info: "出牌阶段，你可以流失X点体力，再选择一名有“龙佑”的角色（可以是自己），移除其所有“龙佑”，且本回合其无法成为你使用的伤害牌的目标；然后你可以视为使用一张【杀】，此【杀】无视次数限制且不计入次数，其距离和目标数上限均为此次实际移除的层数。X为本回合此前发动此技能的次数（首次为0）。",
+            nihil_caisheng_info: "出牌阶段，你可以流失2X点体力，再选择一名有“龙佑”的角色（可以是自己），移除其所有“龙佑”，且本回合其无法成为你使用的伤害牌的目标；然后你可以视为使用一张【杀】，此【杀】无视次数限制且不计入次数，其距离和目标数上限均为此次实际移除的层数。X为本回合此前发动此技能的次数（首次为0）。",
             nihil_caisheng_turn: "裁生",
             nihil_caisheng_affected: "裁生",
         },

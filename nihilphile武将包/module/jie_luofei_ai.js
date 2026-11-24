@@ -79,7 +79,8 @@
             if (c.enabled && c.enabled[p.id] === false) return false;
             if (c.name === "tao") return p.attitude > 0 && p.hp < p.maxHp && (p.id === s.owner || reliableReserves(s) > 1);
             if (c.type === "equip") return p.attitude > 0 && !p.equips.some(function (e) { return e.subtype === c.subtype; });
-            if (!["sha", "juedou", "huogong", "shunshou", "guohe"].includes(c.name)) return false;
+            if (c.name === "sha") return s.players.some(function (t) { return t.attitude < 0 && canHit(s, c, p, t); });
+            if (!["juedou", "huogong", "shunshou", "guohe"].includes(c.name)) return false;
             return predictedTargets(s, c, p).some(function (targets) { return targets.some(function (id) { return actor(s, id).attitude < 0; }); });
         });
         return useful ? (p.used ? 0.08 : 0.18) : 0.03;
@@ -138,10 +139,21 @@
         return Math.max(1, (s.distances[u.id + ':' + t.id] || 1) + stats(u.equips).from - (old ? stats(old).from : 0) + stats(t.equips).to - (oldTarget ? stats(oldTarget).to : 0));
     }
     function range(p) { return Math.max(p.baseRange || 1, stats(p.equips).range); }
+    // normalize gives every seat its own equipment array. Branches share it until
+    // equipment changes, so the same two arrays have the same reach for this card.
+    var attackReach = new WeakMap();
     function canHit(s, c, u, t) {
         if (!u.alive || !t.alive || u === t) return false;
-        if (c.denied && c.denied[u.id + ":" + t.id]) return false;
-        return distance(s, u, t) <= range(u) + (c.rangeExtra || 0);
+        var sources = attackReach.get(c);
+        if (!sources) { sources = new WeakMap(); attackReach.set(c, sources); }
+        var targets = sources.get(u.equips);
+        if (!targets) { targets = new WeakMap(); sources.set(u.equips, targets); }
+        var hit = targets.get(t.equips);
+        if (hit === undefined) {
+            hit = !(c.denied && c.denied[u.id + ":" + t.id]) && distance(s, u, t) <= range(u) + (c.rangeExtra || 0);
+            targets.set(t.equips, hit);
+        }
+        return hit;
     }
     function predictedTargets(s, c, u) {
         var others = s.players.filter(function (p) { return p.alive && p.id !== u.id; });
@@ -659,7 +671,7 @@
             var card = cardOf(s, a.card), area = card && ["nanman", "wanjian"].includes(card.name);
             var scope = { account: account, coverage: coverage }, prior = transitionScopes.get(s), outcomes;
             transitionScopes.set(s, scope);
-            try { outcomes = transfer(s, a); if (area) outcomes = mergeOutcomes(outcomes, scope); }
+            try { outcomes = transfer(s, a); }
             catch (error) {
                 if (error !== WORK_EXHAUSTED) throw error;
                 coverage.refusedTransitions++;
@@ -674,7 +686,15 @@
                 if (account) { account.remaining -= branchWork.spent; account.spent += branchWork.spent; }
                 return { probability: o.probability, peak: !area || o.peak === undefined ? o.probability : o.peak, order: area && o.pathOrder || [index], state: o.state, immediate: evidence(o.state), routes: routes };
             });
-            return intents.map(function (intent, index) {
+            var aggregated = [];
+            intents.forEach(function (intent, index) {
+                // Several intents often choose the same continuation in every branch.
+                for (var prior = 0; prior < index; prior++) {
+                    if (branches.every(function (o) { return o.routes[prior] === o.routes[index]; })) {
+                        aggregated.push(aggregated[prior]);
+                        return;
+                    }
+                }
                 var result = { value: 0, terminal: null, risk: [0, 0, 0, 0], line: [a], evidence: { selfAlive: true, selfRescue: 0, allyRescue: Infinity, allyRescues: Object.fromEntries(policy.allyEmergency.map(function (id) { return [id, 0]; })), allyAlive: Object.fromEntries(policy.allyEmergency.map(function (id) { return [id, true]; })), reserveSafe: true, ownDanger: false }, branches: [] }, likely = -1, likelyOrder = [];
                 branches.forEach(function (o) {
                     var v = o.routes[index], immediate = o.immediate, e = result.evidence;
@@ -694,8 +714,9 @@
                     if (o.peak > likely || o.peak === likely && earlierPath(o.order, likelyOrder)) { likely = o.peak; likelyOrder = o.order; result.line = [a].concat(v.line); }
                 });
                 result.evidence.allyRescue = Math.min.apply(Math, Object.values(result.evidence.allyRescues));
-                return result;
+                aggregated.push(result);
             });
+            return aggregated;
         }
         function account(units, kind) { return { remaining: units, spent: 0, kind: kind }; }
         function priority(s, a) {
@@ -734,6 +755,7 @@
             return collect(candidates);
         }
         var candidates = [leaf(start)], roots = enumerate(start, true), ranked = [];
+        var extra = Math.max(4, start.hand.filter(function (v) { return v.name === "jiu" || v.name === "tao" || v.type === "equip"; }).length + 3);
         roots.forEach(function (a) {
             coverage.roots++;
             var c = cardOf(start, a.card);
@@ -743,7 +765,10 @@
                 if (options.horizon === "immediate") return collect([leaf(s)]);
                 var ordinaryAccount = account(Math.floor(budget / Math.max(1, roots.length) / count), "ordinary");
                 var coreAccount = account(Math.floor(1024 / count), "core");
-                var extra = Math.max(4, start.hand.filter(function (v) { return v.name === "jiu" || v.name === "tao" || v.type === "equip"; }).length + 3);
+                if (!ordinaryAccount.remaining && !coreAccount.remaining && !s.ended && actor(s, s.owner).alive) {
+                    coverage.truncated = coverage.coreTruncated = true;
+                    return collect([leaf(s)]);
+                }
                 var required = core(s, a, c, 0, extra, c, coreAccount);
                 var ordinary = search(s, 3, ordinaryAccount);
                 coverage.ordinaryWork += ordinaryAccount.spent; coverage.coreWork += coreAccount.spent;
@@ -758,10 +783,10 @@
         return { firstAction: best.line[0] || action("stop", null, start.owner, []), score: best.terminal === 1 || best.line.length && (policy.selfEmergency && best.evidence.selfRescue < Infinity || policy.allyEmergency.length && best.evidence.allyRescue < Infinity) ? Math.max(1, best.value - baseline) : best.value - baseline, continuation: best.line.slice(1), coverage: coverage, ranked: ranked, policy: policy, evidence: best.evidence, branches: best.branches || [] };
     }
 
-    // luofei-benchmark/design/challenge-winner.cjs SHA-256 cec479fc1c341422f5dec35aa090253642a9f3d34ade4940bd74a640aa342cb1
+    // Adapted from luofei-benchmark/design/challenge-winner.cjs SHA-256 cec479fc1c341422f5dec35aa090253642a9f3d34ade4940bd74a640aa342cb1
     function winnerFactory() {
         var module = { exports: {} };
-// BEGIN EXACT BENCHMARK WINNER
+// BEGIN LIVE BENCHMARK POLICY
 'use strict';
 // Public rules copied at build time. Runtime inputs are observations only.
 const CARD_RULES = Object.freeze({
@@ -811,7 +836,7 @@ const CARD_RULES = Object.freeze({
 const CAPABILITIES = Object.freeze({
   rules: 'luofei-benchmark-v1',
   cards: Object.keys(CARD_RULES),
-  unsupported: ['muniu', 'treasure equipment', 'numeric shield armor (hujia)', 'character skills other than God Luofei'],
+  unsupported: ['muniu', 'treasure equipment', 'character skills other than God Luofei'],
   defaults: { suit: 'spade', rank: 7, ownerSex: 'female', whiteboardSex: 'male' },
 });
 
@@ -966,6 +991,7 @@ function targetGroups(state, value, user, mode, materials) {
       if (mode === 'puppet' && state.quotas.puppetSha) return [];
       const targets = others.filter(p => reachable(state, user, p));
       const max = user.equipment.weapon?.name === 'fangtian' && user.hand.length === materials.length && materials.every(id => user.hand.some(c => c.id === id)) ? 3 : 1;
+      if (max === 1) return targets.map(p => [p.id]);
       return Array.from({ length: Math.min(max, targets.length) }, (_, i) => combinations(targets, i + 1)).flat().map(group => group.map(p => p.id));
     }
     case 'healSelf': return user.hp < user.maxHp ? [[user.id]] : [];
@@ -1171,8 +1197,10 @@ function damage(state, task) {
     else mark(state, source.id, true, 'xueyin');
   }
   const hpBefore = recipient.hp;
-  recipient.hp -= num;
-  emit(state, 'damage', { source: task.source, target: recipient.id, num, hpBefore, hpAfter: recipient.hp, nature: task.nature ?? 'normal', name: task.effect?.value.name, useId: task.effect?.useId, materialOwner: task.effect?.materialOwner, mode: task.effect?.mode });
+  const absorbed = Math.min(recipient.armor, num);
+  recipient.armor -= absorbed;
+  recipient.hp -= num - absorbed;
+  emit(state, 'damage', { source: task.source, target: recipient.id, num, absorbed, hpBefore, hpAfter: recipient.hp, nature: task.nature ?? 'normal', name: task.effect?.value.name, useId: task.effect?.useId, materialOwner: task.effect?.materialOwner, mode: task.effect?.mode });
   const chain = task.nature && recipient.linked && !task.chain ? targetOrder(state, state.actor).filter(p => p.linked && p.id !== recipient.id).map(p => p.id) : [];
   if (task.nature && recipient.linked) { recipient.linked = false; emit(state, 'link', { target: recipient.id, value: false }); }
   prepend(state,
@@ -1420,7 +1448,7 @@ function create(fixture, { seed = 1 } = {}) {
     if (judgments.some(c => rule(c).kind !== 'delay') || new Set(judgments.map(c => c.name)).size !== judgments.length) throw new Error('Invalid judgments');
     const sex = input.sex ?? (input.id === ownerId ? 'female' : 'male');
     if (!['male','female','none'].includes(sex)) throw new Error('Invalid sex');
-    if (input.armor !== undefined && input.armor !== 0) throw new Error('Unsupported numeric shield armor (hujia)');
+    if (!Number.isInteger(input.armor ?? 0) || input.armor < 0) throw new Error('Invalid shield points');
     return { id: input.id, team: input.team, role: input.role ?? '', sex, hp, maxHp, alive: true, hand: (input.hand ?? []).map((value, i) => makeCard(value, `${input.id}-h${i}`)), equipment, judgments, mark: !!input.mark, linked: !!input.linked, armor: input.armor ?? 0, policy: { ...(input.policy ?? {}) }, initialEmptySlots: ['weapon','armor','offhorse','defhorse'].filter(slot => !equipment[slot]), normalSha: 0, normalJiu: 0, wine: 0 };
   });
   if (!ids.has(ownerId) || players.find(p => p.id === ownerId).team !== 'ally') throw new Error('Owner must be a living ally');
@@ -1556,8 +1584,9 @@ function scoreEpisode(fixture, report, config = {}) {
         playerFor(event.target);
         hp(event.hpBefore);
         count(event.num, 'damage.num');
-        if (!friendly(event.target)) add(entry, 'enemyDamage', damagePoints(event.hpBefore, event.num, config));
-        else if (event.target !== owner) add(entry, 'allyDamage', -damagePoints(event.hpBefore, event.num, config));
+        const effectiveHp = event.hpBefore + (event.absorbed || 0);
+        if (!friendly(event.target)) add(entry, 'enemyDamage', damagePoints(effectiveHp, event.num, config));
+        else if (event.target !== owner) add(entry, 'allyDamage', -damagePoints(effectiveHp, event.num, config));
         break;
       }
       case 'death': {
@@ -1653,7 +1682,10 @@ const decide = function (view, ranking = false, selected = null) {
   const armor = p => p.equipment?.armor?.name;
   const range = p => ranges[weapon(p)] || 1;
   const shaCards = hand.filter(c => c.name === 'sha');
-  const lastUse = [...(view.events || [])].reverse().find(e => e.type === 'use');
+  let lastUse;
+  for (let i = (view.events || []).length - 1; i >= 0; i--) {
+    if (view.events[i].type === 'use') { lastUse = view.events[i]; break; }
+  }
   const contextSource = players.get(request.source || lastUse?.source);
   const contextTarget = players.get(request.target || lastUse?.targets?.[0]);
   const contextCard = knownCards.get(lastUse?.card) || { name: request.name || lastUse?.name || 'sha' };
@@ -1701,6 +1733,7 @@ const decide = function (view, ranking = false, selected = null) {
     let hp = p.hp, value = 0;
     const preheal = p.id === self.id && source?.mark;
     if (preheal) { value += heal(p); hp = Math.min(p.maxHp, hp + 1); }
+    hp += p.armor || 0;
     if (!friendly(p)) {
       const ordinary = Math.min(n, Math.max(hp, 0)), excess = Math.max(0, n - ordinary);
       value += ordinary + Math.min(1, excess) + Math.min(1, Math.max(0, excess - 1)) * 0.5 + Math.max(0, excess - 2) * 0.25;
@@ -1853,7 +1886,7 @@ const decide = function (view, ranking = false, selected = null) {
       if (!quotas.shishengDamage && p.id === self.id && self.hp < self.maxHp) return gain - 0.5;
       return gain - 0.03;
     }
-    const effectiveHp = Math.min(self.maxHp, self.hp + (p.mark ? 1 : 0));
+    const effectiveHp = Math.min(self.maxHp, self.hp + (p.mark ? 1 : 0)) + (self.armor || 0);
     if (effectiveHp <= 1) return -100;
     let value = damage(self, p) + 0.85;
     if (!p.mark && !quotas.puppetSha) value += bestAttack(p) * 0.6;
@@ -1921,7 +1954,7 @@ const decide = function (view, ranking = false, selected = null) {
 return decide;
 }
 const livePolicy = tacticalFactory();
-const SEARCH_BUDGET = {candidates:6, worlds:4, horizon:18, rolloutChoices:1000};
+const SEARCH_BUDGET = {largeTableCandidates:4, largeTableHorizon:8, worlds:4, horizon:18, rolloutChoices:1000};
 let originalPlayers;
 const sampleRecipe = balancedDeck();
 const hiddenPrior = ['sha','sha','sha','shan','shan','shan','tao','jiu','wuxie','guohe','juedou','tiesuo'];
@@ -2010,7 +2043,8 @@ function rollout(view, world, action) {
   policy(view,false,action);
   fastStep(match,action);
   let steps = 0, choices = 0;
-  while (get(match).status === 'choice' && steps++ < SEARCH_BUDGET.horizon) {
+  const horizon = view.players.length > 4 ? SEARCH_BUDGET.largeTableHorizon : SEARCH_BUDGET.horizon;
+  while (get(match).status === 'choice' && steps++ < horizon) {
     const next = rolloutView(get(match));
     choices += next.legalActions.length;
     if (choices > SEARCH_BUDGET.rolloutChoices) break;
@@ -2028,7 +2062,7 @@ function shortlist(view, ranked) {
   const cards = new Map(view.ownerHand.map(c=>[c.id,c]));
   const seen = new Set(), candidates=[];
   const width=view.legalActions.length;
-  const limit=width>500?2:width>300?4:width>120?6:10;
+  const limit = view.players.length > 4 ? SEARCH_BUDGET.largeTableCandidates : width > 120 ? 6 : 10;
   for (const entry of ranked) {
     const a=entry.action,c=cards.get(a.card);
     if (a.type==='play' && ['lebu','bingliang','shandian'].includes(c?.name)) continue;
@@ -2043,10 +2077,11 @@ function shortlist(view, ranked) {
 module.exports.decide = function(view) {
   rememberInitial(view);
   if (view.request?.kind !== 'play' || view.legalActions.length < 3) return livePolicy(view);
-  const ranked = livePolicy(view,true), candidates = shortlist(view,ranked);
-  if (candidates.length<2) return livePolicy(view);
+  const ranked = livePolicy(view,true);
   if (view.legalActions.length > 192) return livePolicy(view,false,ranked[0].action);
-  const worldCount = view.legalActions.length <= 64 ? SEARCH_BUDGET.worlds : 2;
+  const candidates = shortlist(view,ranked);
+  if (candidates.length<2) return livePolicy(view,false,ranked[0].action);
+  const worldCount = view.players.length <= 4 && view.legalActions.length <= 64 ? SEARCH_BUDGET.worlds : 2;
   const worlds = [1709,7919,15427,23209,32117,43753].slice(0,worldCount).map(seed=>({seed,fixture:imaginedFixture(view,seed)}));
   let best = ranked[0].action, bestValue = -Infinity;
   for (const entry of candidates) {
@@ -2059,7 +2094,7 @@ module.exports.decide = function(view) {
   }
   return livePolicy(view,false,best);
 };
-// END EXACT BENCHMARK WINNER
+// END LIVE BENCHMARK POLICY
         return { decide: module.exports.decide, rules: CARD_RULES };
     }
 
@@ -2078,7 +2113,7 @@ module.exports.decide = function(view) {
         var hand = position.hand.map(visibleCard);
         var players = position.players.map(function (p) {
             if (p.alive && p.id !== position.owner && p.attitude === 0) throw new Error("unsupported-neutral-attitude");
-            if (p.armor) throw new Error("unsupported-hujia");
+            if (!Number.isInteger(p.armor ?? 0) || p.armor < 0) throw new Error("invalid-hujia");
             var equipment = {};
             p.equips.forEach(function (c) {
                 var value = visibleCard(c), slot = slots[c.subtype];
@@ -2086,7 +2121,7 @@ module.exports.decide = function(view) {
                 equipment[slot] = value;
             });
             return { id: p.id, team: p.id === position.owner || p.attitude >= 0 ? "ally" : "enemy", sex: p.sex || "none", hp: p.hp, maxHp: p.maxHp, alive: p.alive,
-                handCount: p.id === position.owner ? hand.length : p.known.length + p.unknown, equipment: equipment, judgments: p.judges.map(visibleCard), mark: p.mark, linked: p.linked, armor: 0, wine: p.drunk };
+                handCount: p.id === position.owner ? hand.length : p.known.length + p.unknown, equipment: equipment, judgments: p.judges.map(visibleCard), mark: p.mark, linked: p.linked, armor: p.armor || 0, wine: p.drunk };
         });
         var legal = position.roots.map(function (a) {
             if (a.kind === "normal" || a.kind === "puppet") return { type: "play", mode: a.kind, card: a.card, user: a.user, targets: a.targets.slice() };
@@ -2104,10 +2139,14 @@ module.exports.decide = function(view) {
         return linked.length >= 2 && linked.some(function (p) { return chosen.targets.includes(p.id); }) && linked.some(function (p) { return p.id === position.owner || p.attitude > 0; });
     }
     function winnerPlan(position) {
+        if (!position.roots) {
+            position = normalize(position);
+            position.roots = enumerate(position, true);
+        }
         var winner = winnerFactory(), view;
         try { view = winnerObservation(position, winner.rules); }
         catch (error) { return Object.assign(plan(position), { source: "native-fallback", fallbackReason: error.message }); }
-        var chosen = winner.decide(view), index = view.legalActions.findIndex(function (a) { return JSON.stringify(a) === JSON.stringify(chosen); });
+        var chosen = winner.decide(view), index = view.legalActions.indexOf(chosen);
         if (index < 0) throw new Error("Benchmark winner returned a non-native root");
         var first = position.roots[index] || action("stop", null, position.owner, []);
         if (identityFriendlyElementalChain(position, first)) return Object.assign(plan(position), { source: "native-fallback", fallbackReason: "identity-friendly-elemental-chain" });

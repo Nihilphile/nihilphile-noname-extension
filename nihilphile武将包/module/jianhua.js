@@ -1293,6 +1293,7 @@
             charlotte: true,
             mark: true,
             marktext: "锻",
+            markimage: "extension/" + EXT_NAME + "/image/mark/jianhua_forged.png",
             intro: {
                 content: (storage) =>
                     "本回合已触发过虚拟【杀】的武器：" +
@@ -1395,6 +1396,7 @@
             forced: true,
             mark: true,
             marktext: "凝",
+            markimage: "extension/" + EXT_NAME + "/image/mark/jianhua_ning.png",
             intro: {
                 name: "凝",
                 name2: "凝",
@@ -1535,6 +1537,7 @@
             charlotte: true,
             mark: true,
             marktext: "费",
+            markimage: "extension/" + EXT_NAME + "/image/mark/jianhua_cost.png",
             intro: {
                 name: "换装费",
                 content: (storage, player) =>

@@ -7,6 +7,7 @@ const vm = require("node:vm");
 
 const root = path.resolve(__dirname, "..");
 const engine = path.resolve(process.env.NONAME_ENGINE_ROOT || path.join(root, "../子琪源码/电脑版"));
+const zus = path.resolve(process.env.ZUS_ENGINE_TEST_ROOT || path.join(root, "../Zusfylri武将包"));
 const cases = [];
 const test = (name, run) => cases.push({ name, run });
 const MARK = "nihil_longyou", TURN = "nihil_caisheng_turn", AFFECTED = "nihil_caisheng_affected";
@@ -15,7 +16,8 @@ const unbind = source => source.replace(/^import .+;\r?$/gm, "").replace(/export
 
 // A DOM adapter exercises the real Player.update/$update paths without a browser.
 function element() {
-    const node = { children: [], style: {}, dataset: {}, className: "", title: "",
+    const style = { getPropertyValue(key) { return this[key] || ""; }, setProperty(key, value) { this[key] = value; } };
+    const node = { children: [], style, dataset: {}, className: "", title: "",
         appendChild(child) { child.parentNode = this; this.children.push(child); return child; },
         removeChild(child) { this.children.splice(this.children.indexOf(child), 1); child.parentNode = null; },
         remove() { if (this.parentNode) this.parentNode.removeChild(this); },
@@ -36,7 +38,7 @@ function element() {
     return node;
 }
 
-function fixture(zusOrder) {
+function fixture(zusOrder, currentZus = false) {
     const lib = { element: { VCard: class { constructor(card) { Object.assign(this, card); } } }, card: {}, skill: { global: ["nihil_baichi_ai"] }, config: {}, translate: {}, phaseName: [], natureAudio: { hujia_damage: {}, damage: {} },
         natureSeparator: "|", linked: ["fire", "thunder"], announce: { publish() {} } };
     const history = { everything: [], changeHp: [] }, trace = [];
@@ -122,6 +124,21 @@ function fixture(zusOrder) {
     lib.filter = vm.runInContext("(" + library.slice(filterStart, filterEnd) + ")", ctx);
     ctx.ui.create = { div: parent => parent.appendChild(element()) };
     function installZus() {
+        if (currentZus) {
+            ctx.window.zusfylriModules = {};
+            ctx.document = { createElement: element, head: element(),
+                getElementById(id) { return this.head.children.find(node => node.id === id); } };
+            ctx.requestAnimationFrame = callback => callback();
+            for (const file of ["core/helper.js", "module/suigouyu.js", "module/haoyang_ui.js", "module/haoyang.js",
+                "module/zhuxi.js", "module/broken_jade_ui.js"]) {
+                vm.runInContext(fs.readFileSync(path.join(zus, file), "utf8"), ctx, { filename: file });
+            }
+            for (const module of Object.values(ctx.window.zusfylriModules)) {
+                module.init(lib, game, ctx.ui, get, ctx.ai, _status);
+                Object.assign(lib.skill, module.skill);
+            }
+            return;
+        }
         const reference = path.join(root, ".audit/zus-reference/module/haoyang.js");
         assert.ok(fs.existsSync(reference), "Zus reference module is required for this compatibility check");
         vm.runInContext(fs.readFileSync(reference, "utf8"), ctx);
@@ -204,9 +221,15 @@ function fixture(zusOrder) {
             mayHaveShan() { return this.shanResponses?.filter(Boolean).length || this.aoeResponses?.filter(Boolean).length || 0; },
             mayHaveSha() { return this.aoeResponses?.filter(Boolean).length || 0; },
             node: { hp: element(), count: element() }, classList: element().classList, updateMarks() {},
+            querySelector() { return null; },
             $damage() {}, $damagepop() {}, syncStorage() {}, addTempClass() {},
             markSkill(id) { this.visualMarks.add(id); }, unmarkSkill(id) { this.visualMarks.delete(id); },
             addSkill(id) { if (!this.skills.includes(id)) this.skills.push(id); if (lib.skill[id]?.mark) this.markSkill(id); },
+            removeSkill(id) {
+                if (!this.skills.includes(id)) return;
+                this.skills = this.skills.filter(skill => skill !== id);
+                lib.skill[id]?.onremove?.(this);
+            },
             addTempSkill(id, expiry) { this.addSkill(id); this.expiry = expiry; this.tempSkills[id] = expiry; },
             logSkill() {},
             draw(num = 1) {
@@ -377,6 +400,10 @@ test("native update renders highlighted pips, missing base HP and exact large co
     const f = fixture(), p = f.player("owner", true), q = f.player("other"); await f.start();
     const hp = p.node.hp;
     assert.equal(hp.querySelectorAll(".nihil-longyou-jade").length, 3);
+    const badgeProbe = { storage: p.storage, marks: {}, updateMarks() {},
+        mark() { throw new Error("Longyou must use the HP bar without a duplicate badge"); } };
+    f.lib.element.Player.prototype.markSkill.call(badgeProbe, MARK);
+    assert.deepEqual(badgeProbe.marks, {});
     assert.ok(hp.querySelectorAll(".nihil-longyou-jade").every(node =>
         node.style.cssText.includes('url("extension/Nihilphile/image/mark/longyou.png")') &&
         node.style.cssText.includes("transform:none!important")));
@@ -493,6 +520,107 @@ if (fs.existsSync(path.join(root, ".audit/zus-reference/module/haoyang.js"))) {
         await q.recover(1); assert.equal(q.hp, 9); assert.equal(q.countMark(MARK), 3);
     });
 } else console.log("SKIP optional Zus load-order checks: local source reference unavailable");
+if (process.env.ZUS_ENGINE_TEST_ROOT || fs.existsSync(path.join(zus, "module/suigouyu.js"))) {
+    for (const order of ["before", "after"]) test("current Zus loads " + order + " Nihil with both HP handlers active", async () => {
+        const f = fixture(order, true), p = f.player("baichi", true), q = f.player("target");
+        await f.start();
+        const jades = f.ctx.zusBrokenJades;
+        assert.equal(jades.shatter(q), true);
+        await q.recover(2);
+        assert.deepEqual([q.hp, q.maxHp, q.countMark(MARK), jades.count(q)], [6, 4, 2, 4]);
+        await q.loseHp(1);
+        assert.deepEqual([q.hp, q.maxHp, q.countMark(MARK), jades.count(q)], [5, 4, 1, 4]);
+        await q.loseHp(2);
+        assert.deepEqual([q.hp, q.maxHp, q.countMark(MARK), jades.count(q)], [3, 3, 0, 3]);
+    });
+    test("full shatter uses filled base slots, including under a fixed maximum", async () => {
+        const f = fixture("after", true), p = f.player("baichi", true), q = f.player("target");
+        await f.start();
+        const jades = f.ctx.zusBrokenJades;
+        q.hp = 2;
+        f.give(q, 2);
+        q.storage.zus_qianlin_bonus = 1;
+        assert.equal(jades.shatter(q), true);
+        assert.deepEqual([q.hp, q.maxHp, q.countMark(MARK), jades.count(q)], [4, 2, 2, 2]);
+        assert.equal(jades.canShatter(q), false);
+        assert.equal(jades.shatter(p), true);
+        assert.deepEqual([p.hp, p.maxHp, p.countMark(MARK), jades.count(p)], [4, 1, 3, 1]);
+        assert.equal(jades.canShatter(p), false);
+        await p.loseHp(3);
+        assert.deepEqual([p.hp, p.maxHp, p.countMark(MARK), jades.count(p)], [1, 1, 0, 1]);
+    });
+    test("max-HP loss removes empty slots before broken slots and preserves overflow", async () => {
+        const f = fixture("after", true), p = f.player("baichi", true), q = f.player("target");
+        await f.start();
+        const jades = f.ctx.zusBrokenJades;
+        q.hp = 2;
+        f.give(q, 2);
+        assert.equal(jades.shatterIntact(q, 5), 2);
+        await q.loseMaxHp(2);
+        assert.deepEqual([q.hp, q.maxHp, q.countMark(MARK), jades.count(q)], [4, 2, 2, 2]);
+        await q.loseMaxHp(1);
+        assert.deepEqual([q.hp, q.maxHp, q.countMark(MARK), jades.count(q)], [3, 1, 2, 1]);
+    });
+    for (const order of ["before", "after"]) {
+        test("armor, Qianlin, Longyou and broken jades absorb damage in order with Zus " + order, async () => {
+            const f = fixture(order, true), p = f.player("baichi", true), q = f.player("target"), source = f.player("attacker");
+            await f.start();
+            const jades = f.ctx.zusBrokenJades;
+            jades.shatter(q);
+            q.hujia = 1;
+            q.storage.zus_qianlin_bonus = 1;
+            q.addSkill("zus_qianlin_clear");
+            await q.recover(1);
+            await q.damage(4, source);
+            assert.deepEqual([q.hujia, q.storage.zus_qianlin_bonus, q.countMark(MARK), q.hp, q.maxHp, jades.count(q)],
+                [0, 0, 0, 3, 3, 3]);
+        });
+        test("native HP bar keeps broken jades on filled base slots in both layouts with Zus " + order, async () => {
+            const f = fixture(order, true), p = f.player("baichi", true), q = f.player("target");
+            await f.start();
+            const jades = f.ctx.zusBrokenJades;
+            q.hp = 1;
+            jades.shatterIntact(q, 1);
+            q.storage.zus_qianlin_bonus = 1;
+            f.give(q, 2);
+            for (const reversed of [false, true]) {
+                f.get.is.newLayout = () => reversed;
+                q.update();
+                q.$update();
+                const hp = q.node.hp, slots = hp.children.slice(0, 4);
+                assert.equal(slots[reversed ? 3 : 0].classList.contains("zus-broken-jade"), true);
+                assert.equal(slots.filter(node => node.classList.contains("lost") && node.classList.contains("zus-broken-jade")).length, 0);
+                assert.equal(hp.querySelectorAll(".zus-broken-jade").length, 1);
+                assert.equal(hp.querySelectorAll(".nihil-longyou-jade").length, 2);
+                assert.equal(hp.querySelectorAll(".zus-temp-jade").length, 1);
+            }
+        });
+    }
+    test("Zhuxi does not count Longyou as an intact jade, including after Mingsi", async () => {
+        const f = fixture("after", true), p = f.player("baichi", true), q = f.player("zhuxi");
+        await f.start();
+        const jades = f.ctx.zusBrokenJades;
+        q.addSkill("zus_suiyu");
+        q.hp = q.maxHp = 3;
+        jades.shatter(q);
+        await q.damage(1, p);
+        assert.deepEqual([q.hp, q.maxHp, q.countMark(MARK), jades.count(q)], [4, 2, 2, 2]);
+        assert.equal(f.lib.skill.zus_suiyu.filter({ num: 1 }, q), false);
+        await q.loseHp(1);
+        assert.deepEqual([q.hp, q.maxHp, q.countMark(MARK), jades.count(q)], [3, 2, 1, 2]);
+    });
+    test("Zhuxi replaces the loss while intact jades remain without spending Longyou", async () => {
+        const f = fixture("before", true), p = f.player("baichi", true), q = f.player("zhuxi");
+        await f.start();
+        const jades = f.ctx.zusBrokenJades;
+        q.addSkill("zus_suiyu");
+        f.give(q, 2);
+        await q.loseHp(2);
+        assert.deepEqual([q.hp, q.maxHp, q.countMark(MARK), jades.count(q)], [6, 4, 2, 2]);
+        await q.damage(1, p);
+        assert.deepEqual([q.hp, q.maxHp, q.countMark(MARK), jades.count(q)], [6, 4, 2, 3]);
+    });
+}
 test("Mingsi replaces slash, trick, elemental and cardless skill damage", async () => {
     for (const card of [{ name: "sha" }, { name: "juedou" }, { name: "huogong", nature: "fire" }, undefined]) {
         const f = fixture(), p = f.player("owner", true), q = f.player("target"); await f.start(); q.hujia = 2;
@@ -726,12 +854,28 @@ test("another player's Sha never grants the owner an outcome reward", async () =
     const f = fixture(), p = f.player("owner", true), other = f.player("other"); await f.start();
     await f.slash(other, p); assert.equal(p.drawn, 0); assert.equal(p.hp, 3);
 });
-test("Caisheng costs 0,1,2 per turn and never rewards removed Longyou", async () => {
+test("Shengyu grants one Longyou only at the start of an owner's phase with no layers", async () => {
+    const f = fixture(), p = f.player("owner", true), q = f.player("other"); await f.start();
+    for (const phase of ["phaseZhunbei", "phaseJudge", "phaseDraw", "phaseUse", "phaseDiscard", "phaseJieshu"]) {
+        f.give(p, 0);
+        await f.fire(phase + "Begin", q);
+        assert.equal(p.countMark(MARK), 0);
+        assert.equal(q.countMark(MARK), 0);
+        await f.fire(phase + "Begin", p);
+        await f.fire(phase + "Begin", p);
+        assert.equal(p.countMark(MARK), 1);
+        assert.equal(p.hp, 2);
+    }
+});
+test("Caisheng costs 0,2,4 per turn and never rewards removed Longyou", async () => {
     const f = fixture(), p = f.player("owner", true), q = f.player("donor"); await f.start();
-    for (let cost = 0; cost < 3; cost++) {
+    f.give(p, 6);
+    for (const [priorUses, remaining] of [6, 4, 0].entries()) {
+        assert.ok(f.mod.skill.nihil_caisheng.prompt(null, p).includes("流失" + 2 * priorUses + "点体力"));
         f.give(q, 1); await f.runSkill("nihil_caisheng", p, q);
-        assert.equal(p.storage[TURN].count, cost + 1); assert.equal(p.hp, 4 - cost * (cost + 1) / 2);
-        assert.equal(p.countMark(MARK), 3 - cost * (cost + 1) / 2); p.getStat().skill = {};
+        assert.equal(p.storage[TURN].count, priorUses + 1);
+        assert.equal(p.hp, 1 + remaining);
+        assert.equal(p.countMark(MARK), remaining); p.getStat().skill = {};
     }
     assert.equal(p.drawn, 0); f.endTurn(); f.give(q, 1); await f.runSkill("nihil_caisheng", p, q);
     assert.equal(p.storage[TURN].count, 1); assert.equal(p.hp, 1);
@@ -739,16 +883,17 @@ test("Caisheng costs 0,1,2 per turn and never rewards removed Longyou", async ()
 test("Caisheng pays before donor selection and self uses only remaining layers", async () => {
     const f = fixture(), p = f.player("owner", true), q = f.player("donor"); f.player("other"); await f.start();
     f.give(q, 1); await f.runSkill("nihil_caisheng", p, q);
-    p.beforeChoice = kind => { if (kind === "donor") assert.equal(p.hp, 3, "cost must already be paid"); };
+    p.beforeChoice = kind => { if (kind === "donor") assert.equal(p.hp, 2, "cost must already be paid"); };
     await f.runSkill("nihil_caisheng", p, p);
     assert.equal(p.hp, 1); assert.equal(p.countMark(MARK), 0); assert.equal(p.drawn, 0);
-    assert.deepEqual(Array.from(p.offeredRange), [1, 2]);
+    assert.deepEqual(Array.from(p.offeredRange), [1, 1]);
     assert.equal(f.lib.filter.targetEnabled({ name: "tao" }, p, p), true);
 });
 test("Caisheng self-only activation requires marks left after cost", async () => {
     const f = fixture(), p = f.player("owner", true); await f.start();
-    p.storage[TURN] = { count: 3, targets: [] }; assert.equal(f.mod.skill.nihil_caisheng.filter(null, p), false);
-    p.storage[TURN].count = 2; assert.equal(f.mod.skill.nihil_caisheng.filter(null, p), true);
+    f.give(p, 2);
+    p.storage[TURN] = { count: 1, targets: [] }; assert.equal(f.mod.skill.nihil_caisheng.filter(null, p), false);
+    f.give(p, 3); assert.equal(f.mod.skill.nihil_caisheng.filter(null, p), true);
 });
 test("Caisheng uses fixed distance/layer bound instead of weapon range and respects bans", async () => {
     const f = fixture(), p = f.player("owner", true), donor = f.player("donor"), near = f.player("near"), mid = f.player("mid"), far = f.player("far"), banned = f.player("banned");
@@ -880,6 +1025,50 @@ test("own-target Wuxie AI respects cancellation direction and leaves third-party
     assert.ok(f.aiChoice(target, { player: source, target, card }, "chooseToUse", { type: "wuxie", state: -1, info_map: map }).ai1() > 0);
     assert.equal(f.aiChoice(other, { player: source, target, card }, "chooseToUse", { type: "wuxie", state: 1, info_map: map }).ai1(), 3);
 });
+test("allied attack AI selects legal enemies by Longyou, then native preference", async () => {
+    const f = fixture(), owner = f.player("owner", true), ally = f.player("ally");
+    const heavy = f.player("heavy"), light = f.player("light"), bare = f.player("bare");
+    owner.name = "nihil_baichi"; owner.identity = "zhu"; ally.identity = "zhong";
+    for (const target of [heavy, light, bare]) target.identity = "fan";
+    await f.start(); f.give(heavy, 3); f.give(light, 1);
+    const scores = new Map([[heavy, 9], [light, 4], [bare, 1]]);
+    const original = target => scores.get(target);
+    const { ui } = f.ctx;
+    vm.runInContext(unbind(read("noname/ai/basic.js")), f.ctx);
+    const selector = vm.runInContext("new Basic()", f.ctx);
+    f.ctx.CacheContext = class { static setCacheContext() {} static setInCacheEnvironment() {} static removeCacheContext() {} };
+    f.game.check = () => {};
+    function select(options, { card = "sha", direct = false, count = 1 } = {}) {
+        const parent = { name: direct ? "chooseUseTarget" : "phaseUse" };
+        const event = f.game.createEvent(direct ? "chooseTarget" : "chooseToUse", false);
+        Object.assign(event, { type: "phase", player: ally,
+            selectTarget: [1, count], filterTarget: () => true, getParent: () => parent, ai2: original, ai: original });
+        f.get.card = () => ({ name: card });
+        if (direct) event._get_card = f.get.card();
+        f.ctx._status.event = event;
+        f.lib.skill.nihil_baichi_ai[direct ? "onChooseTarget" : "onChooseToUse"](event);
+        const selected = ui.selected.targets = [];
+        selected.add = target => selected.push(target);
+        f.get.selectableTargets = () => options.filter(target => !selected.includes(target));
+        selector.chooseTarget(direct ? event.ai : event.ai2);
+        return selected.map(target => target.playerid);
+    }
+    for (const direct of [false, true]) {
+        assert.deepEqual(select([heavy, light, bare], { direct, count: 3 }), ["bare", "light", "heavy"]);
+        assert.deepEqual(select([heavy, light], { direct }), ["light"]);
+        assert.deepEqual(select([heavy], { direct }), ["heavy"]);
+        scores.set(bare, -3);
+        assert.deepEqual(select([bare, heavy], { direct }), ["heavy"]);
+        scores.set(bare, 1);
+    }
+    f.give(light, 3); assert.deepEqual(select([heavy, light]), ["heavy"]);
+    assert.deepEqual(select([heavy, bare], { card: "tao" }), ["heavy"]);
+    bare.identity = "zhong"; assert.deepEqual(select([heavy, bare]), ["heavy"]);
+    bare.identity = "fan"; ally.identity = "fan";
+    assert.deepEqual(select([heavy, bare]), ["heavy"]);
+    ally.identity = "zhong"; owner.inGame = false;
+    assert.deepEqual(select([heavy, bare]), ["heavy"]);
+});
 test("enemy full-health Peach AI requires a real discard reduction and reevaluates after healing", async () => {
     const f = fixture(), source = f.player("source", true), target = f.player("target"); await f.start(); f.nativeAiEffects();
     source.identity = "fan"; target.identity = "zhong"; target.phaseUsing = true;
@@ -1010,6 +1199,13 @@ test("complete extension registration, portrait, skill names and pinyin", async 
     assert.equal(p.img, "extension/Nihilphile/image/character/nihil_baichi.png");
     const image = fs.readFileSync(path.join(root, "nihilphile武将包/image/character/nihil_baichi.png"));
     assert.equal(image.subarray(1, 4).toString(), "PNG");
+    for (const [id, skill] of Object.entries(pack.skill)) {
+        if (!skill.markimage) continue;
+        assert.ok(skill.markimage.startsWith("extension/Nihilphile/image/mark/"), id);
+        assert.ok(skill.intro, id + " retains its mark explanation");
+        const asset = fs.readFileSync(path.join(root, "nihilphile武将包", skill.markimage.slice("extension/Nihilphile/".length)));
+        assert.equal(asset.subarray(1, 4).toString(), "PNG", id);
+    }
 });
 
 (async () => {

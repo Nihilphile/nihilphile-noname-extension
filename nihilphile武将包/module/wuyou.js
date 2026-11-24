@@ -1977,6 +1977,7 @@
             charlotte: true,
             mark: true,
             marktext: SUIT_NAMES[suit].charAt(0),
+            markimage: "extension/" + EXT_NAME + "/image/mark/wuyou_" + suit + ".png",
             intro: {
                 name: SUIT_NAMES[suit] + "忆",
                 content: function (storage, player) {

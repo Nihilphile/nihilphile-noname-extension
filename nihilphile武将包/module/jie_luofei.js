@@ -163,6 +163,7 @@
                 return lib.skill.nihil_jie_yulei.aiPlanner.score("sourceEffect", source, { card: card, source: source, target: target });
             } } },
             marktext: "印", onremove: true,
+            markimage: "extension/" + EXT_NAME + "/image/mark/shen_luofei_blood.png",
             intro: { content: "已获得血印（每名角色至多一个）", nocount: true },
             trigger: { source: "damageSource" },
             filter: function (event, player) {

@@ -218,20 +218,20 @@
 
     function cardScore(card, player, target, isShunshou, button, assumeLegal) {
         if (!assumeLegal && !canAffect(card, player, target, isShunshou)) return 0;
-        var att = get.attitude(player, target);
         var pos = cardPosition(card);
         var baseVal = safeCardValue(card, player, target, button);
-
+        var att = get.attitude(player, target);
         if (att > 0) return scoreFriendCard(card, player, target, isShunshou);
         if (att === 0) return Math.max(0, baseVal);
 
+        var bonus = player.hasSkill?.("ycc_yuce")
+            ? window.nihilModules.ycc.removalBonus(player, target, isShunshou, pos) : 0;
         if (pos === "j") {
             if (isHarmfulJudge(card)) return 0;
-            if (isRiskJudge(card)) return 28;
-            return 8;
+            return bonus + (isRiskJudge(card) ? 28 : 8);
         }
-        if (pos === "e") return scoreEnemyEquip(card, player, target, isShunshou, baseVal);
-        if (pos === "h") return handPressureScore(card, player, target, isShunshou);
+        if (pos === "e") return bonus + scoreEnemyEquip(card, player, target, isShunshou, baseVal);
+        if (pos === "h") return bonus + handPressureScore(card, player, target, isShunshou);
         return Math.max(0, baseVal);
     }
 

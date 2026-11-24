@@ -55,6 +55,7 @@
             forced: true,
             mark: true,
             marktext: "适",
+            markimage: "extension/" + EXT_NAME + "/image/mark/moxuluo_adapt.png",
             intro: {
                 content: function (storage, player) {
                     var marks = player.getStorage(MARK);

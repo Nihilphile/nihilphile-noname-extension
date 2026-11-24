@@ -554,6 +554,7 @@
             charlotte: true,
             mark: true,
             marktext: "帅",
+            markimage: "extension/" + EXT_NAME + "/image/mark/huojing_commander.png",
             intro: {
                 name: "帅",
                 content: "当前角色是全场唯一的“帅”",

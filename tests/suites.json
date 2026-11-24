@@ -19,6 +19,7 @@
     "xianxueyinhua_ai_smoke.js",
     "xianxueyinhua_decision_test.js",
     "xianxueyinhua_keep_planner_test.js",
+    "ycc_huangming_ai_test.js",
     "ycc_yuce_ai_smoke.js"
   ],
   "native": [
@@ -36,8 +37,10 @@
     "mechanism_test_engine_contract.js",
     "shencangfeng_ai_runtime_test.js",
     "wuyou_ai_decision_test.js",
-    "ycc_huangming_use_regression.js"
+    "ycc_huangming_use_regression.js",
+    "zhao_ai_test.js",
+    "zhao_engine_test.js"
   ],
   "helpers": ["jianhua_ai_fixture.js"],
-  "benchmarks": ["jie_luofei_ai_perf_test.js"]
+  "benchmarks": ["jie_luofei_ai_perf_test.js", "jie_luofei_ai_live_perf_test.js"]
 }

@@ -45,10 +45,38 @@ function identityFixture(roles = ['zhu', 'zhong', 'nei']) {
 function mapped(a, owner) {
     return a.type === 'play' ? { kind: a.mode, card: a.card, user: a.user, targets: a.targets } : a.type === 'endPlay' ? { kind: 'stop', card: null, user: owner, targets: [] } : { kind: a.option, card: null, user: a.option === 'damage' ? a.target : owner, targets: [a.option === 'damage' ? owner : a.target] };
 }
-test('embedded source is byte-identical to the pinned benchmark winner', () => {
+test('historical benchmark reference is pinned', () => {
     assert.equal(crypto.createHash('sha256').update(winnerSource).digest('hex'), 'cec479fc1c341422f5dec35aa090253642a9f3d34ade4940bd74a640aa342cb1');
-    const embedded = aiSource.split('// BEGIN EXACT BENCHMARK WINNER\n')[1].split('// END EXACT BENCHMARK WINNER')[0];
-    assert.equal(embedded, winnerSource);
+});
+test('shield absorbs real damage before HP, preserves blood triggers and missing HP for peach', () => {
+    const policy = aiSource.split('// BEGIN LIVE BENCHMARK POLICY\n')[1].split('// END LIVE BENCHMARK POLICY')[0];
+    const sim = vm.runInNewContext(policy + '\n;({create, observe, step})', { module: { exports: {} } });
+    const match = sim.create({ players: [
+        { id: 'G', team: 'ally', hp: 1, maxHp: 2, armor: 1, hand: ['tao'] },
+        { id: 'E', team: 'enemy' },
+    ], deck: { cards: ['sha', 'shan'] } });
+    const view = sim.observe(match);
+    const hit = view.legalActions.find(a => a.option === 'damage' && a.target === 'E');
+    const after = sim.step(match, hit);
+    const owner = after.players.find(p => p.id === 'G');
+    assert.equal(owner.hp, 1);
+    assert.equal(owner.armor, 0);
+    assert.equal(after.events.find(e => e.type === 'damage').num, 1);
+    assert.ok(after.events.some(e => e.type === 'draw' && e.reason === 'blood'));
+    const peach = after.legalActions.find(a => a.mode === 'normal' && a.card === view.ownerHand[0].id);
+    assert.equal(sim.step(match, peach).players.find(p => p.id === 'G').hp, 2);
+
+    const wineAttack = sim.create({ players: [
+        { id: 'G', team: 'ally', hand: ['jiu', 'sha'], mark: true },
+        { id: 'E', team: 'enemy', hp: 2, armor: 1 },
+    ], deck: { cards: ['shan', 'shan'] } });
+    const play = (v, cardId) => v.legalActions.find(a => a.mode === 'normal' && a.card === cardId);
+    const wine = sim.step(wineAttack, play(sim.observe(wineAttack), 'G-h0'));
+    const hitEnemy = sim.step(wineAttack, play(wine, 'G-h1'));
+    const enemy = hitEnemy.players.find(p => p.id === 'E');
+    assert.equal(enemy.hp, 1);
+    assert.equal(enemy.armor, 0);
+    assert.equal(hitEnemy.events.find(e => e.type === 'draw' && e.reason === 'blood').num, 2);
 });
 test('original and fresh embedded winner choose identical native roots across public positions', () => {
     for (const names of [['sha'], ['tao', 'jiu', 'sha'], ['jiedao', 'sha'], ['nanman', 'wanjian'], ['juedou', 'tiesuo'], ['qinglong', 'shan']]) {
@@ -141,11 +169,12 @@ test('same-event attitude changes refresh fallback and benchmark routes', () => 
     assert.equal(neutral.decision.fallbackReason, 'unsupported-neutral-attitude');
     assert.equal(neutral.snapshot.players.find(p => p.id === f.third.playerid).attitude, 0);
 });
-test('unsupported public cards and hujia use the native fallback explicitly', () => {
+test('hujia stays on the fast route while unsupported public cards fall back', () => {
     const f = prepare(); f.move(f.card('sha'), 'h', f.owner);
     f.owner.hujia = 1;
     let decision = f.planner.inspect(f.owner).decision;
-    assert.equal(decision.source, 'native-fallback'); assert.equal(decision.fallbackReason, 'unsupported-hujia');
+    assert.equal(decision.source, 'benchmark-winner');
+    assert.equal(decision.observation.players.find(p => p.id === f.owner.playerid).armor, 1);
     f.owner.hujia = 0; f.lib.card.custom = f.lib.card.sha;
     f.move(f.card('custom'), 'h', f.owner);
     decision = f.planner.inspect(f.owner).decision;

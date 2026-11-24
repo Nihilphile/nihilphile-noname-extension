@@ -945,6 +945,7 @@
             forced: true,
             mark: true,
             marktext: "缠",
+            markimage: "extension/" + EXT_NAME + "/image/mark/xianxueyinhua_xuechan.png",
             intro: {
                 name: "血缠",
                 content: "手牌上限+2；防止下次受到的伤害，然后移去“血缠”",

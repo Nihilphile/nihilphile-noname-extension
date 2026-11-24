@@ -397,6 +397,7 @@
 
     // 断义·回合结束恢复（charlotte 子技能）
     nihil_duanyi2: {
+        markimage: "extension/" + EXT_NAME + "/image/mark/guanyu_duanyi.png",
         trigger: { global: "phaseEnd" },
         forced: true,
         popup: false,

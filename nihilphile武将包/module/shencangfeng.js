@@ -580,6 +580,7 @@
             forced: true,
             mark: true,
             marktext: "势",
+            markimage: "extension/" + EXT_NAME + "/image/mark/shencangfeng_shi.png",
             intro: {
                 name: "势",
                 name2: "势",

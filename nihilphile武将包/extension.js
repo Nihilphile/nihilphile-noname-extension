@@ -5,6 +5,7 @@ game.import("extension", function (lib, game, ui, get, ai, _status) {
         "ai_cards",
         "tia",
         "ycc",
+        "zhao",
         "guanyu",
         "binglangwei",
         "moxuluo",
@@ -96,13 +97,61 @@ game.import("extension", function (lib, game, ui, get, ai, _status) {
             }
         },
 
+        arenaReady: function () {
+            function isYizhiCardChoice(event) {
+                return event.name === "chooseButton" && event.getParent().buttoned === "nihil_yizhi";
+            }
+
+            function canCancel(event) {
+                if (!event?.isMine?.()) return false;
+                if (event.skill === "nihil_yizhi_backup") return true;
+                if (event.forced) return false;
+                if (event.nihilCanCancel) return true;
+                if (isYizhiCardChoice(event)) return true;
+                if (event.name === "chooseTarget") {
+                    const parent = event.getParent();
+                    return parent.name === "chooseUseTarget" && parent.logSkill === "ycc_yuce";
+                }
+                return false;
+            }
+
+            // 半选时保留取消。颐指选牌名、交牌和单目标杀选齐后由引擎提交。
+            lib.hooks.checkEnd.unshift(function (event, selection) {
+                if (!canCancel(event)) return;
+                const basicCard = isYizhiCardChoice(event) && ui.selected.buttons.length === 1;
+                const gift = event.skill === "nihil_yizhi_backup" && ui.selected.cards.length === 1;
+                const slash = event.name === "chooseTarget" && event._get_card?.name === "sha" &&
+                    get.select(event.selectTarget)[1] === 1;
+                if (selection.ok && (basicCard || (ui.selected.targets.length === 1 && (gift || slash)))) {
+                    selection.auto = true;
+                    selection.autoConfirm = true;
+                } else {
+                    selection.auto = false;
+                }
+                ui.create.confirm(selection.ok ? "oc" : "c");
+            });
+
+            ui.window.addEventListener(lib.config.touchscreen ? "touchend" : "click", function (input) {
+                if (!_status.paused || _status.paused2 || ui.intro || _status.dragged || _status.touchpopping ||
+                    _status.mouseleft && _status.mousedragging || input.touches?.length || !canCancel(_status.event)) return;
+                const node = input.target;
+                if (node !== ui.window && !ui.arena.contains(node)) return;
+                if (node.closest(".control, .menubutton, .roundarenabutton, .marks, .identity, input, select, button")) return;
+                const item = node.closest(".button, .card, .player");
+                if (item?.matches(".selectable, .selected")) return;
+                // 让原生窗口继续清理本次点击，同时避免这次点击落到刚恢复的出牌询问上。
+                _status.clicked = true;
+                ui.click.cancel(ui.confirm?.lastChild);
+            }, true);
+        },
+
         content: function () {},
 
         config: {},
         package: {
             intro: "Nihilphile custom character pack",
             author: "Nihilphile",
-            version: "2.3.1",
+            version: "2.3.2",
             diskURL: "",
             forumURL: "",
         },

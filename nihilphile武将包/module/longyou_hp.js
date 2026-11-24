@@ -12,7 +12,10 @@
                 (window.NIHIL_EXTENSION_NAME || "Nihilphile") + "/image/mark/longyou.png";
 
             function count(player) { return player.countMark(MARK); }
-            function temporary(player) { return player.storage[QIANLIN] || 0; }
+            function temporary(player) {
+                // New Zus tracks Qianlin outside player.hp; older versions include it.
+                return lib.zusQianlinJadeLossInstalled ? 0 : player.storage[QIANLIN] || 0;
+            }
             function ceiling(player) { return player.maxHp + count(player) + temporary(player); }
             function active(player) {
                 return !player.storage.nohp && game.hasPlayer(function (owner) { return owner.hasSkill("nihil_shengyu"); });
@@ -49,9 +52,10 @@
                     return;
                 }
                 var base = player.hp - amount - temporary(player);
+                var qianlin = player.storage[QIANLIN] || 0;
                 hp.dataset.nihilLongyou = String(amount);
                 hp.title = "当前体力 " + player.hp + " / 体力上限 " + player.maxHp +
-                    "；基础体力 " + base + "；龙佑 +" + amount + (temporary(player) ? "；潜鳞 +" + temporary(player) : "");
+                    "；基础体力 " + base + "；龙佑 +" + amount + (qianlin ? "；潜鳞 +" + qianlin : "");
                 if (player.maxHp > 5) {
                     var label = hp.ownerDocument.createElement("span");
                     label.className = "nihil-longyou-total";
@@ -87,8 +91,11 @@
                 if (!/^\s*(async\s+)?function\b/.test(source)) source = source.replace(/^(async\s+)?/, "$1function ");
                 return Function("lib", "game", "ui", "get", "ai", "_status", "return (" + source + ");")(lib, game, ui, get, ai, _status);
             }
-            function rewrite(name, changes) {
-                var source = lib.element.content[name].toString();
+            function rewrite(name, changes, content = lib.element.content[name]) {
+                if (typeof content.zusHpRebase === "function") {
+                    return content.zusHpRebase(rewrite(name, changes, content.zusHpBase));
+                }
+                var source = content.toString();
                 changes.forEach(function (change) {
                     if (!change[0].test(source)) throw new Error("龙佑：不兼容的体力处理函数 " + name);
                     source = source.replace(change[0], change[1]);

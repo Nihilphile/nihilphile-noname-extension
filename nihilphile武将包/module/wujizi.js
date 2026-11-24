@@ -66,6 +66,7 @@
             },
             group: ["nihil_huajin_target", "nihil_huajin_hurt"],
             marktext: "消",
+            markimage: "extension/" + EXT_NAME + "/image/mark/wujizi_xiaoli.png",
             intro: { name: "消力", name2: "消力", content: "mark" },
             subSkill: {
                 target: {
@@ -106,6 +107,7 @@
             charlotte: true,
             mark: true,
             marktext: "失",
+            markimage: "extension/" + EXT_NAME + "/image/mark/wujizi_disabled.png",
             intro: { content: "化劲本回合失效；回合结束后恢复。" },
             onremove: function (player) {
                 player.enableSkill("nihil_huajin_disabled");

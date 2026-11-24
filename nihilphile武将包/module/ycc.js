@@ -7,19 +7,35 @@
     }
 
 const YCC_SHA_CARD = { name: "sha", isCard: true };
+const LIXING_SHA = "ycc_lixing_sha";
+const MARK_PATH = "extension/" + EXT_NAME + "/image/mark/";
+const QINZHENG_SKIN = "ycc_yuchengchen_qinzheng";
 
-function yccCardKeepValue(card, player) {
-    return get.useful(card, player) + get.value(card, player) / 3;
+function installLixingCardIcon(lib) {
+    const card = lib.element?.Card?.prototype;
+    const addGaintag = card?.addGaintag;
+    if (!addGaintag || addGaintag.nihilLixingIcon) return;
+
+    const iconUrl = (lib.assetURL || "") + MARK_PATH + "ycc_lixing.png";
+    card.addGaintag = function (tag) {
+        const result = addGaintag.call(this, tag);
+        const label = this.node?.gaintag;
+        if (label && this.hasGaintag(LIXING_SHA)) {
+            const icon = label.ownerDocument.createElement("img");
+            icon.src = iconUrl;
+            icon.alt = "";
+            icon.style.cssText = "width:20px;height:20px;object-fit:contain;vertical-align:middle;margin-right:2px;pointer-events:none";
+            label.prepend(icon);
+        }
+        return result;
+    };
+    card.addGaintag.nihilLixingIcon = true;
 }
 
 function semanticLog() {
     if (typeof game !== "undefined" && game && typeof game.log === "function") {
         game.log.apply(game, arguments);
     }
-}
-
-function yccCountWuzhong(player) {
-    return player.countCards("h", card => get.name(card, player) === "wuzhong");
 }
 
 function yccMaxOtherHand(player) {
@@ -30,8 +46,38 @@ function yccMaxOtherHand(player) {
     return max;
 }
 
-function yccYuceMaxReachable(player) {
-    return yccMaxOtherHand(player) <= player.countCards("h") + yccCountWuzhong(player) + 1;
+// 已知无中能抬高瑞的手牌线；其余领先者各需要多少次顺手，必须合计。
+function yccCanReachMax(player, hand) {
+    if (hand >= yccMaxOtherHand(player)) return true;
+    const cards = player.getCards("h");
+    const draws = cards.filter(card => get.name(card, player) === "wuzhong" && player.canUse(card, player));
+    const line = hand + draws.length;
+    const leaders = game.filterPlayer(other => other !== player && other.countCards("h") > line);
+    if (!leaders.length) return true;
+    const steals = cards.filter(card => get.name(card, player) === "shunshou");
+    const needed = leaders.reduce((sum, other) => sum + other.countCards("h") - line, 0);
+    if (needed > steals.length) return false;
+    // 为每个缺口分配一张顺手。如已占用，先为原缺口另找一张。
+    const assigned = new Map();
+    function match(target, seen) {
+        for (const card of steals) {
+            if (seen.has(card) || !player.canUse(card, target)) continue;
+            seen.add(card);
+            if (!assigned.has(card) || match(assigned.get(card), seen)) {
+                assigned.set(card, target);
+                return true;
+            }
+        }
+        return false;
+    }
+    return leaders.every(target => {
+        const need = target.countCards("h") - line;
+        if (target.countGainableCards(player, "h") < need || get.attitude(player, target) >= 0) return false;
+        for (let i = 0; i < need; i++) {
+            if (!match(target, new Set())) return false;
+        }
+        return true;
+    });
 }
 
 function yccYuceShaValue(player) {
@@ -44,7 +90,7 @@ function yccYuceShaValue(player) {
 function yccYucePlanActive(player) {
     if (_status.currentPhase !== player) return false;
     if (!player.hasSkill("ycc_yuce", null, null, false)) return false;
-    if (!yccYuceMaxReachable(player)) return false;
+    if (!yccCanReachMax(player, player.countCards("h"))) return false;
     if (yccYuceShaValue(player) <= 0) return false;
     return true;
 }
@@ -150,46 +196,178 @@ function yccYuceEquipOrder(player, card, num) {
     return 0;
 }
 
-function yccHuangmingTargetScore(player, originalTarget, target, canUseShaOn) {
-    if (!target || target === player || !target.isIn()) return -Infinity;
-    if (get.attitude(player, originalTarget) >= 0) return -Infinity;
-
-    const hand = target.countCards("h");
-    const discardable = yccHuangmingDiscardableCount(player, target);
-    const isEnemy = get.attitude(player, target) < 0;
-    const canSha = canUseShaOn(target);
-
-    if (isEnemy) {
-        const internalSha = canSha ? Math.max(0, get.effect(originalTarget, YCC_SHA_CARD, target, player)) : 0;
-        return 100 + discardable * 10 + internalSha * 2;
-    }
-
-    const isFriend = get.attitude(player, target) > 0;
-    const originalTargetWeak = originalTarget.hp <= 1 || originalTarget.countCards("h") <= 1;
-    if (isFriend && originalTargetWeak && hand > 4 && canSha) {
-        const finishValue = get.effect(originalTarget, YCC_SHA_CARD, target, player);
-        if (finishValue > 0) return 85 + hand + finishValue * 8;
-    }
-
-    return -Infinity;
+function yccHuangmingCanAttack(source, target) {
+    return lib.filter.cardEnabled(YCC_SHA_CARD, source) &&
+        lib.filter.targetEnabled(YCC_SHA_CARD, source, target);
 }
 
-function yccHuangmingDiscardableCount(owner, target) {
-    if (!target) return 0;
-    if (typeof target.countDiscardableCards === "function") {
-        return target.countDiscardableCards(owner, "he");
-    }
-    return target.countCards("he");
+// hand 是【杀】离手后的张数。拆手牌只降低应命者的手牌数。
+function yccDiscardSecuresMax(player, target, hand) {
+    return target.countDiscardableCards(player, "h") > 0 && hand < yccMaxOtherHand(player) &&
+        !game.hasPlayer(other => other !== player &&
+            other.countCards("h") - (other === target ? 1 : 0) > hand);
 }
 
-function yccHuangmingPreferSha(chosen, owner, originalTarget) {
-    const shaEffect = get.effect(originalTarget, YCC_SHA_CARD, chosen, chosen);
-    const giftValue = owner.countCards("h") > 0 ? 2.5 : 0;
-    const shaCost = 1.5;
-    const optionSha = shaEffect + giftValue - shaCost;
-    const discardable = yccHuangmingDiscardableCount(owner, chosen);
-    const optionDiscard = discardable > 0 ? -3 - Math.min(2, discardable / 2) : 0;
-    return optionSha >= optionDiscard;
+function yccPlanningYuce(player) {
+    return _status.currentPhase === player && player.isPhaseUsing() &&
+        player.hasSkill("ycc_yuce") &&
+        !_status.event.getParent(e => e.triggername === "phaseUseEnd", true, true);
+}
+
+// 五谷等公开所得由引擎在实体牌上记录知情者。只查询当前手牌，牌离手即失效。
+const yccMissingSha = new WeakMap();
+const yccPartialResponses = new WeakMap();
+
+function yccObserveSha(event, owner) {
+    const source = event.player;
+    let missing = yccMissingSha.get(owner);
+    if (event.name === "gain") {
+        if (!missing?.has(source)) return;
+        const known = source.getKnownCards(owner);
+        if (known.some(card => get.name(card, source) === "sha")) {
+            missing.delete(source);
+            return;
+        }
+        const gained = event.cards.filter(card => get.position(card) === "h" && get.owner(card) === source && !known.includes(card));
+        const count = missing.get(source) + gained.length;
+        if (count >= 2) missing.delete(source);
+        else missing.set(source, count);
+        return;
+    }
+
+    const parent = event.getParent();
+    if (!["nanman", "juedou"].includes(parent.name) || parent.directHit ||
+        event.respondTo?.[1] !== parent.card || typeof event.result?.bool !== "boolean") return;
+    if (source !== (parent.name === "juedou" ? parent.turn : parent.target)) return;
+    // shaRequired 在本次响应结束之后才递减。决斗双方每次换人时重新计数。
+    let partial = yccPartialResponses.get(owner);
+    if (event.result.bool) {
+        if (!partial) yccPartialResponses.set(owner, partial = new WeakSet());
+        if (parent.shaRequired > 1) partial.add(parent);
+        else partial.delete(parent);
+        return;
+    }
+    if (partial?.delete(parent) || !lib.filter.cardRespondable(YCC_SHA_CARD, source, event)) return;
+    if (source.getKnownCards(owner).some(card => get.name(card, source) === "sha")) return;
+    if (!missing) yccMissingSha.set(owner, missing = new WeakMap());
+    missing.set(source, 0);
+}
+
+function yccHasLixing(player) {
+    return player.isZhu2() && player.hasSkill("ycc_lixing") && !player.getStat("triggerSkill").ycc_lixing;
+}
+
+function yccMinOtherHand(player, donor) {
+    return Math.min(...game.filterPlayer(other => other !== player)
+        .map(other => other.countCards("h") - (other === donor ? 1 : 0)));
+}
+
+// 分档留出区间，区间内按手牌量和牌效破同分。
+const HUANGMING = {
+    markEnemy: 100, unknownAlly: 200, enemyDiscard: 300, confirmedAlly: 400,
+    preserveDraw: 500, enemyDiscardForYuce: 1500, allyDiscardForYuce: 1600,
+};
+
+function yccLeavesLowest(player, source, hand) {
+    return hand - player.needsToDiscard(hand - player.countCards("h")) <= yccMinOtherHand(player, source);
+}
+
+function yccHuangmingTargetScore(player, source, targets, planDiscard, hand = player.countCards("h"), compareBranches = true) {
+    const attitude = get.attitude(player, source);
+    if (!attitude) return 0;
+    const ally = attitude > 0;
+    const count = source.countCards("h");
+    const secureMax = planDiscard && yccDiscardSecuresMax(player, source, hand);
+    if (ally && secureMax) return HUANGMING.allyDiscardForYuce + Number(yccLeavesLowest(player, source, hand));
+    const known = source.getKnownCards(player);
+    const knownSha = known.filter(card => get.name(card, source) === "sha");
+    const lixing = count > 0 && yccHasLixing(player);
+    const unknown = known.length < count && !yccMissingSha.get(player)?.has(source);
+    const options = knownSha.map(card => ({ card, certain: true }));
+    if (lixing) {
+        // 转牌保留颜色，属性变为普通。暗牌两种颜色都可能出现。
+        for (const suit of new Set(known.map(card => get.suit(card, source)))) {
+            options.push({ card: { name: "sha", suit, isCard: true }, certain: true });
+        }
+    }
+    if (known.length < count && (lixing || unknown)) {
+        for (const suit of ["heart", "spade"]) {
+            options.push({ card: { name: "sha", suit, isCard: true }, certain: lixing });
+        }
+    }
+    let willing = false;
+    let hurtsUs = false;
+    let attack = 0;
+    for (const { card, certain } of options) {
+        if (!lib.filter.cardEnabled(card, source)) continue;
+        for (const victim of targets) {
+            if (!lib.filter.targetEnabled(card, source, victim)) continue;
+            if (get.effect(victim, card, source, source) + 1 <= 0) continue;
+            willing = true;
+            const effect = get.effect(victim, card, source, player);
+            if (effect < 0) hurtsUs = true;
+            if (!ally || effect <= 0 || get.attitude(player, victim) >= 0) continue;
+            const threshold = Math.min(5, 2 + Math.max(1, victim.hp));
+            if (certain || count >= threshold) {
+                attack = Math.max(attack, (certain ? HUANGMING.confirmedAlly : HUANGMING.unknownAlly) + Math.min(count, 20) + Math.min(effect, 9) / 10);
+            }
+        }
+    }
+    let score = attack;
+    if (!ally && !willing && source.countDiscardableCards(player, "he")) score = secureMax ? HUANGMING.enemyDiscardForYuce : HUANGMING.enemyDiscard;
+    if (!ally && lixing && willing && !hurtsUs) score = HUANGMING.markEnemy;
+    // 在不影响御一时先保御二，再按应命者分档。
+    if (compareBranches && score > 0 && _status.currentPhase === player && player.isPhaseUsing()) {
+        const discard = !ally && !willing;
+        const reduced = discard && (secureMax || !source.countDiscardableCards(player, "e")) ? source : null;
+        if (yccLeavesLowest(player, reduced, hand)) {
+            score += secureMax && discard ? 1 : HUANGMING.preserveDraw;
+        }
+    }
+    return score;
+}
+
+// 比较一次顺拆的落点：先保最高，其次保最低，仍差牌时缩小与最高者的差距。
+function yccHandOutcome(player, hand, reduced) {
+    const others = game.filterPlayer(other => other !== player)
+        .map(other => other.countCards("h") - Number(other === reduced));
+    const gap = Math.max(0, ...others) - hand;
+    const missing = others.reduce((sum, n) => sum + Math.max(0, n - hand), 0);
+    const afterDiscard = hand - player.needsToDiscard(hand - player.countCards("h"));
+    const low = afterDiscard <= Math.min(...others);
+    return (gap <= 0 ? 4 : 0) + Number(low) - Math.min(20, missing) / 10;
+}
+
+function yccRemovalBonus(player, target, steal, position) {
+    if (!yccPlanningYuce(player) || !yccYuceHasEnemyShaTarget(player)) return 0;
+    const name = steal ? "shunshou" : "guohe";
+    const resolving = _status.event.getParent(e => e.name === name && e.player === player, true, true);
+    const before = player.countCards("h") + Number(!!resolving);
+    const after = before - Number(!steal);
+    return 160 * (yccHandOutcome(player, after, position === "h" ? target : null) -
+        yccHandOutcome(player, before, null));
+}
+
+function yccTrueShaRank(player, card, target) {
+    if (get.attitude(player, target) >= 0) return 0;
+    const hand = player.countCards("h") - 1;
+    const max = yccMaxOtherHand(player);
+    const effect = get.effect(target, card, player, player);
+    if (target.hasSkill("tengjia3") && game.hasNature(card) && effect > 0 &&
+        !target.hasSkillTag("unequip2") && !player.hasSkillTag("unequip", false, { name: "sha", card, target })) {
+        return game.hasNature(card, "fire") ? 7 : 6;
+    }
+    if (hand + 1 >= max && !player.needsToDiscard()) return 0;
+    const best = Math.max(0, ...game.filterPlayer(other => other !== player && other !== target)
+        .map(other => yccHuangmingTargetScore(player, other, [target], true, hand, false)));
+    if (hand + 1 >= max) return best && (hand >= max || best >= HUANGMING.allyDiscardForYuce) ? 4 : 0;
+    if (best >= HUANGMING.enemyDiscardForYuce) return 5;
+    const followUp = best >= HUANGMING.confirmedAlly || (best >= HUANGMING.unknownAlly && best < HUANGMING.enemyDiscard);
+    return effect > 0 || followUp ? 1 : 0;
+}
+
+function yccPlansSingleSha(player) {
+    return yccPlanningYuce(player) && player.hasSkill("ycc_huangming") && player.getCardUsable("sha", true) === 1;
 }
 
 function yccQinzhengEnemies(player) {
@@ -201,15 +379,35 @@ function yccQinzhengIsDuel(player) {
     return enemies.length === 1 && game.countPlayer(current => current !== player) === 1;
 }
 
+function yccYuceRecastScore(card) {
+    const player = get.player();
+    const hand = player.getCards("h");
+    const canRecastAll = hand.every(c => player.canRecast(c, player));
+    if (!player.isZhu2()) {
+        return canRecastAll && hand.every(c => get.value(c, player) < 8) ? 1 : 6 - get.value(card, player);
+    }
+
+    const hasArmor = !!player.getVEquip(2) && !player.hasSkillTag("unequip2");
+    const threats = game.countPlayer(other => other !== player &&
+        get.attitude(player, other) < 0 && other.inRange(player));
+    const duelBonus = player.awakenedSkills.includes("ycc_qinzheng") && yccQinzhengIsDuel(player);
+    const threshold = 5 - Number(hasArmor) - Number(threats <= 1) - Number(duelBonus);
+    if (canRecastAll && player.hp >= threshold) return 1;
+
+    const name = get.name(card, player);
+    const reserveWine = player.hp === 1 && !hand.some(c => get.name(c, player) === "tao");
+    if (name !== "shan" && name !== "tao" && !(reserveWine && name === "jiu")) return 1;
+    // 同名牌留一张；已有不能重铸的同名牌时，它自然充当保留牌。
+    const same = hand.filter(c => get.name(c, player) === name);
+    const keep = same.find(c => !player.canRecast(c, player)) || same[0];
+    return card === keep ? -1 : 1;
+}
+
 function yccQinzhengHasAllyHuangmingSupport(player, enemy) {
     return game.hasPlayer(current => {
         if (current === player || current === enemy) return false;
         if (get.attitude(player, current) <= 0) return false;
-        if (current.countCards("h") <= 4) return false;
-        if (!current.hasSha()) return false;
-        if (lib.filter.cardEnabled(YCC_SHA_CARD, current) === false) return false;
-        if (lib.filter.targetEnabled(YCC_SHA_CARD, current, enemy) === false) return false;
-        return get.effect(enemy, YCC_SHA_CARD, current, player) > 0;
+        return yccHuangmingTargetScore(player, current, [enemy], false, player.countCards("h"), false) >= HUANGMING.unknownAlly;
     });
 }
 
@@ -238,7 +436,7 @@ function yccQinzhengUpdateWatch(player) {
 }
 
 function yccQinzhengShouldUse(player) {
-    if (!player.hasSkill("ycc_huangming", null, null, false)) return false;
+    if (player.maxHp <= 1) return false;
     const enemies = yccQinzhengEnemies(player);
     if (enemies.length !== 1) return false;
     if (yccQinzhengIsDuel(player)) return true;
@@ -249,168 +447,168 @@ function yccQinzhengShouldUse(player) {
 var character = {
     ycc_yuchengchen: {
         sex: "male",
-        group: "fu",
+        group: "yao",
         hp: 4,
-        skills: ["ycc_huangming", "ycc_yuce", "ycc_qinzheng"],
+        isZhugong: true,
+        skills: ["ycc_huangming", "ycc_yuce", "ycc_qinzheng", "ycc_lixing"],
         img: image("ycc_yuchengchen", "jpg"),
     },
 };
 
 var skills = {
-ycc_huangming: {
+    ycc_huangming_observe: {
+        charlotte: true,
+        silent: true,
+        forced: true,
+        firstDo: true,
+        trigger: { global: ["chooseToRespondAfter", "gainAfter"] },
+        filter(event, player) {
+            return event.player !== player && (event.name === "gain" ?
+                yccMissingSha.get(player)?.has(event.player) : !!event.respondTo);
+        },
+        async content(event, trigger, player) {
+            yccObserveSha(trigger, player);
+        },
+    },
+    ycc_huangming: {
+        group: "ycc_huangming_observe",
         audio: 2,
         trigger: { player: "useCardAfter" },
-        filter(event, player) {
-            return event.card && event.card.name === "sha" && event.targets && event.targets.length;
-        },
         direct: true,
+        filter(event, player) {
+            return event.card?.name === "sha" && event.targets?.length > 0 &&
+                game.hasPlayer(target => target !== player && !event.targets.includes(target) &&
+                    (target.countDiscardableCards(player, "he") > 0 || event.targets.some(original =>
+                        original.isIn() && yccHuangmingCanAttack(target, original))));
+        },
         async content(event, trigger, player) {
-            // Single target: auto-select; multi-target: let ycc pick the "靶子"
-            let originalTarget;
-            if (trigger.targets.length === 1) {
-                originalTarget = trigger.targets[0];
-            } else {
-                const pickResult = await player
-                    .chooseTarget("皇命：请选择一个【杀】的目标作为靶子", (card, p, target) => {
-                        return trigger.targets.includes(target);
+            const originalTargets = trigger.targets.filter(target => target.isIn());
+            const fromYuce = trigger.skill === "ycc_yuce";
+            const planDiscard = !fromYuce && yccPlanningYuce(player) && yccYuceHasEnemyShaTarget(player);
+            const result = await player
+                .chooseTarget(get.prompt("ycc_huangming"),
+                    "令一名未被此【杀】指定的其他角色出杀并摸牌，或由你弃置其一张手牌或装备牌",
+                    (card, source, target) => {
+                        const request = get.event();
+                        return target !== source && !request.huangmingExcluded.includes(target) &&
+                            (target.countDiscardableCards(source, "he") > 0 || request.huangmingTargets.some(original =>
+                                lib.filter.cardEnabled({ name: "sha", isCard: true }, target) &&
+                                lib.filter.targetEnabled({ name: "sha", isCard: true }, target, original)));
                     })
-                    .set("ai", target => {
-                        // Prefer enemy with low hand
-                        const att = get.attitude(player, target);
-                        if (att >= 0) return -1;
-                        return 10 - target.countCards("h");
-                    })
-                    .forResult();
-                if (!pickResult.bool) return event.finish();
-                originalTarget = pickResult.targets[0];
-            }
-            if (!originalTarget || !originalTarget.isIn()) return event.finish();
+                .set("nihilCanCancel", true)
+                .set("huangmingExcluded", trigger.targets)
+                .set("huangmingTargets", originalTargets)
+                .set("ai", target => yccHuangmingTargetScore(player, target, originalTargets, planDiscard))
+                .forResult();
+            if (!result.bool) return;
 
-            // Check only request legality. A view-as skill such as 锋刃 can
-            // produce a sha without holding one, and can fail after activation.
-            const canUseShaOn = (chosen) => {
-                if (!chosen.isIn()) return false;
-                const shaCard = { name: "sha", isCard: true };
-                // cardEnabled: sha is always enabled (enable: true), but guard anyway
-                if (lib.filter.cardEnabled(shaCard, chosen) === false) return false;
-                // targetEnabled: sha filterTarget is (player !== target) — no distance
-                return lib.filter.targetEnabled(shaCard, chosen, originalTarget) !== false;
-            };
+            const chosen = result.targets[0];
+            const seekHandDiscard = planDiscard && yccDiscardSecuresMax(player, chosen, player.countCards("h"));
+            player.logSkill("ycc_huangming", chosen);
 
-            // 皇命只能弃置对方手牌区或装备区中可被御承宸弃置的牌。
-            const hasDiscardableCard = (chosen) => yccHuangmingDiscardableCount(player, chosen) > 0;
-
-            // Return whether an actual sha was used, after all view-as precontent.
-            async function executeOption1(chosen) {
-                const useEvent = chosen
-                    .chooseToUse({
-                        prompt: "皇命：对" + get.translation(originalTarget) + "使用一张【杀】（无视距离限制），或选择被弃牌",
-                        prompt2: "成功出杀后获得一张手牌；未出杀则由皇命发动者弃置你的一张牌。",
-                        _yccHuangming: true,
-                        filterCard(card, player, event) {
-                            if (get.name(card, player) !== "sha") return false;
-                            return lib.filter.filterCard.apply(this, arguments);
-                        },
-                        filterTarget: (card, p, tgt) => {
-                            if (tgt !== originalTarget || !tgt.isIn()) return false;
-                            return lib.filter.targetEnabledx(card, p, tgt);
-                        },
-                        selectTarget: 1,
-                        forced: false,
-                        addCount: false,
-                        nodistance: true,
-                        // Validate the final view-as result before the engine
-                        // forwards it to useCard (failed skills may leave no card).
-                        chooseonly: true,
-                        ai1(card) {
-                            if (!yccHuangmingPreferSha(chosen, player, originalTarget)) return -1;
-                            return Math.max(1, get.order(card, chosen));
-                        },
-                        ai2() {
-                            return yccHuangmingPreferSha(chosen, player, originalTarget) ? 1 : -1;
-                        },
-                        custom: {
-                            add: {
-                                card() {
-                                    const request = get.event();
-                                    if (!request.isMine() || request.endButton) return;
-                                    // Native chooseToUse closes endButton before
-                                    // precontent, so the control cannot leak.
-                                    request.endButton = ui.create.control("被弃牌", "stayleft", () => {
-                                        const current = get.event();
-                                        if (!current._yccHuangming) return;
-                                        // Cancel an active view-as selection first,
-                                        // then decline the whole sha request.
-                                        if (current.skill) ui.click.cancel();
-                                        ui.click.cancel();
-                                    });
-                                },
+            if (originalTargets.length > 0) {
+                const canDiscard = chosen.countDiscardableCards(player, "he") > 0;
+                const ally = get.attitude(chosen, player) > 0;
+                // 御一已经结算，队友应命时直接跟原目标，无需再判断手牌排名。
+                const followTargets = ally && !seekHandDiscard
+                    ? originalTargets.filter(target => fromYuce || get.attitude(player, target) < 0)
+                    : [];
+                const useEvent = chosen.chooseToUse({
+                    prompt: "皇命：对" + get.translation(originalTargets) + "中的一名角色使用一张【杀】",
+                    prompt2: canDiscard
+                        ? "无距离限制。出杀结算后摸一张牌，或由" + get.translation(player) + "弃置你的一张手牌或装备牌。"
+                        : "无距离限制。出杀结算后摸一张牌。",
+                    _yccHuangming: true,
+                    huangmingTargets: originalTargets,
+                    huangmingCanDiscard: canDiscard,
+                    huangmingAlly: ally,
+                    huangmingFollowTargets: followTargets,
+                    huangmingDiscardForYuce: canDiscard && seekHandDiscard && ally,
+                    filterCard: (card, source, request) =>
+                        get.name(card, source) === "sha" && lib.filter.cardEnabled(card, source, request) &&
+                        lib.filter.cardUsable(card, source, request),
+                    filterTarget: (card, source, target) => {
+                        const request = get.event().getParent("chooseToUse", true, true);
+                        return request?.huangmingTargets?.includes(target) && target.isIn() &&
+                            lib.filter.targetEnabledx(card, source, target);
+                    },
+                    selectTarget: 1,
+                    nodistance: true,
+                    // 先检查转化技的执行结果，再交给引擎使用牌。
+                    chooseonly: true,
+                    ai1: card => {
+                        const request = get.event();
+                        if (request.huangmingDiscardForYuce) return -1;
+                        if (get.itemtype(card) === "card" && get.name(card, request.player) === "sha" && request.huangmingCanDiscard) {
+                            const follow = request.huangmingFollowTargets.length > 0;
+                            const targets = follow ? request.huangmingFollowTargets : request.huangmingTargets;
+                            const best = Math.max(-Infinity, ...targets
+                                .filter(target => lib.filter.targetEnabled(card, request.player, target))
+                                .map(target => get.effect(target, card, request.player, request.player)));
+                            if (best === -Infinity || (!follow && (request.huangmingAlly ? best <= 0 : best + 1 <= 0))) return -1;
+                        }
+                        if (get.itemtype(card) === "card" && card.hasGaintag?.("ycc_lixing_sha")) return Infinity;
+                        return Math.max(1, get.order(card));
+                    },
+                    ai2: target => {
+                        const request = get.event();
+                        if (request.huangmingDiscardForYuce) return -1;
+                        // chooseButton 技能先无目标确认，再选材料和实际的杀目标。
+                        if (!target) return 1;
+                        const source = request.player;
+                        const card = get.card() || { name: "sha", isCard: true };
+                        const effect = get.effect(target, card, source, source);
+                        if (request.huangmingFollowTargets.length) {
+                            if (!request.huangmingFollowTargets.includes(target)) return -1;
+                            return effect >= 0 ? 1 + effect : 1 / (1 - effect);
+                        }
+                        return effect + (request.huangmingCanDiscard ? 1 : 0.5);
+                    },
+                    custom: {
+                        add: {
+                            card: function () {
+                                const request = get.event();
+                                if (!request.huangmingCanDiscard || !request.isMine() || request.endButton) return;
+                                request.endButton = ui.create.control("令其弃牌", "stayleft", () => {
+                                    const current = get.event();
+                                    if (!current._yccHuangming) return;
+                                    if (current.skill) ui.click.cancel();
+                                    ui.click.cancel();
+                                });
                             },
-                            replace: {},
                         },
-                    })
-                    .set("logSkill", "ycc_huangming");
+                        replace: {},
+                    },
+                });
                 const useResult = await useEvent.forResult();
-                if (!useResult || !useResult.bool || useResult.cancel ||
-                    !useResult.card || get.name(useResult.card, chosen) !== "sha" ||
-                    !get.info(useResult.card) || !chosen.isIn() || !originalTarget.isIn() ||
-                    !useResult.targets || useResult.targets.length !== 1 ||
-                    useResult.targets[0] !== originalTarget) return false;
+                if (useResult?.bool && !useResult.cancel && useResult.card &&
+                    get.name(useResult.card, chosen) === "sha" && get.info(useResult.card) &&
+                    chosen.isIn() && useResult.targets?.length === 1 &&
+                    originalTargets.includes(useResult.targets[0]) && useResult.targets[0].isIn()) {
+                    await chosen.useResult(useResult, useEvent);
+                    if (chosen.isIn()) await chosen.draw(1);
+                    return;
+                }
+            }
 
-                // chooseonly suppresses logging and automatic use; retain the
-                // original request's onuse hooks and addCount=false when using.
-                useEvent.logSkill = "ycc_huangming";
-                await chosen.useResult(useResult, useEvent);
-
-                // After successfully using sha, player gives one hand card to chosen
-                if (player.countCards("h") > 0 && chosen.isIn()) {
-                    const giveResult = await player
-                        .chooseCard("h", true, "皇命：请交给" + get.translation(chosen) + "一张手牌")
-                        .set("ai", card => {
-                            return 10 - yccCardKeepValue(card, player);
-                        })
-                        .forResult();
-                    if (giveResult.bool && giveResult.cards.length) {
-                        await player.give(giveResult.cards, chosen);
+            if (chosen.isIn() && player.isIn() && chosen.countDiscardableCards(player, "he") > 0) {
+                const hand = player.countCards("h");
+                const discard = player.discardPlayerCard(chosen, "he", true, "皇命：弃置" + get.translation(chosen) + "的一张手牌或装备牌");
+                if (chosen.countDiscardableCards(player, "h") && chosen.countDiscardableCards(player, "e")) {
+                    let preferredZone;
+                    if (planDiscard && yccDiscardSecuresMax(player, chosen, hand)) preferredZone = "h";
+                    else if (_status.currentPhase === player && player.hasSkill("ycc_yuce") && player.isPhaseUsing() &&
+                        yccLeavesLowest(player, null, hand) && !yccLeavesLowest(player, chosen, hand)) preferredZone = "e";
+                    if (preferredZone) {
+                        discard.set("preferredZone", preferredZone).set("ai", button => {
+                            const request = get.event();
+                            const value = get.buttonValue(button) * (get.attitude(request.player, request.target) > 0 ? -1 : 1);
+                            // 先按区域保住御策，再按引擎牌值选择该区域中的牌。
+                            return Number(get.position(button.link) === request.preferredZone) + Math.atan(value) / Math.PI;
+                        });
                     }
                 }
-                return true;
-            }
-
-            // Helper: execute option 2 - Yuchenchen discards one hand/equipment card from chosen
-            async function executeOption2(chosen) {
-                await player.discardPlayerCard(chosen, "he", true);
-            }
-
-            // Choose another character (not Yuchenchen, not the original target)
-            const result = await player
-                .chooseTarget(
-                    get.prompt("ycc_huangming"),
-                    "令一名其他角色对指定目标出杀；未出杀则弃置其一张牌",
-                    (card, p, target) => {
-                        if (target === p || !target.isIn()) return false;
-                        if (target === originalTarget) return false;
-                        return canUseShaOn(target) || hasDiscardableCard(target);
-                    }
-                )
-                .set("ai", target => {
-                    const pl = get.player();
-                    return yccHuangmingTargetScore(pl, originalTarget, target, canUseShaOn);
-                })
-                .forResult();
-
-            if (!result.bool) return event.finish();
-            const chosen = result.targets[0];
-
-            player.logSkill("ycc_huangming", chosen);
-            player.line(chosen, "green");
-
-            const usedSha = await executeOption1(chosen);
-            if (usedSha) {
-                semanticLog("#g皇命", "：", chosen, "已对", originalTarget, "出杀");
-            } else if (chosen.isIn() && hasDiscardableCard(chosen)) {
-                semanticLog("#g皇命", "：", chosen, "未出杀，由", player, "弃置其一张牌");
-                await executeOption2(chosen);
+                await discard;
             }
         },
     },
@@ -418,14 +616,22 @@ ycc_huangming: {
     // 御策
     ycc_yuce: {
         audio: 2,
-        trigger: { player: "phaseUseEnd" },
+        trigger: { player: ["phaseUseEnd", "phaseDiscardEnd", "phaseJieshuEnd"] },
         direct: true,
         mod: {
             aiOrder(player, card, num) {
-                if (!yccYucePlanActive(player)) return;
                 if (get.itemtype(card) !== "card" || get.position(card) !== "h") return;
                 const name = get.name(card, player);
+                if (name === "sha" && yccPlansSingleSha(player)) {
+                    const rank = Math.max(0, ...game.filterPlayer(target => player.canUse(card, target))
+                        .map(target => yccTrueShaRank(player, card, target)));
+                    return rank ? 0.001 * rank : 0;
+                }
+                if (!yccYucePlanActive(player)) return;
                 if (name === "wuzhong") return num + 0.5;
+                if (name === "shunshou" || name === "guohe") return num;
+                if (name !== "sha" && yccPlansSingleSha(player) && player.countCards("h") >= yccMaxOtherHand(player) &&
+                    !yccCanReachMax(player, player.countCards("h") - 1)) return 0;
                 if (get.type(card, null, player) === "equip") return yccYuceEquipOrder(player, card, num);
                 if (!yccYuceShouldPreserveHand(player)) return;
                 const useValue = player.getUseValue(card);
@@ -434,92 +640,90 @@ ycc_huangming: {
                 if (num > 0) return 0;
             },
         },
-        filter(event, player) {
-            const hc = player.countCards("h");
-            const isMax = !game.hasPlayer(current => {
-                return current !== player && current.countCards("h") > hc;
-            });
-            const isMin = !game.hasPlayer(current => {
-                return current !== player && current.countCards("h") < hc;
-            });
-            return isMax || isMin;
+        onChooseToUse(event) {
+            if (event.type !== "phase" || event.ai2 !== get.cacheEffectUse || !yccPlansSingleSha(event.player)) return;
+            event.ai2 = target => {
+                const card = get.card();
+                const physical = ui.selected.cards;
+                if (card?.name !== "sha" || physical.length !== 1 || get.name(physical[0], event.player) !== "sha" ||
+                    get.position(physical[0]) !== "h" || event.skill) return get.cacheEffectUse(target);
+                const rank = yccTrueShaRank(event.player, physical[0], target);
+                return rank ? rank * 100 + Math.max(-40, Math.min(40, get.effect(target, card, event.player, event.player))) : -1;
+            };
+        },
+        filter(event, player, triggerName) {
+            const hand = player.countCards("h");
+            const hasHigher = () => game.hasPlayer(current => current.countCards("h") > hand);
+            const hasLower = () => game.hasPlayer(current => current.countCards("h") < hand);
+            if (triggerName === "phaseUseEnd") {
+                return !hasHigher() && player.hasUseTarget(YCC_SHA_CARD);
+            }
+            if (triggerName === "phaseDiscardEnd") return !hasLower();
+            return triggerName === "phaseJieshuEnd" && hasHigher() && hasLower() && player.countCards("h", card => player.canRecast(card, player)) > 0;
         },
         async content(event, trigger, player) {
-            const hc = player.countCards("h");
-            const isMax = !game.hasPlayer(current => {
-                return current !== player && current.countCards("h") > hc;
-            });
-            const isMin = !game.hasPlayer(current => {
-                return current !== player && current.countCards("h") < hc;
-            });
-
-            // If conditions changed and neither holds, end immediately
-            if (!isMax && !isMin) return event.finish();
-
-            if (isMin) {
-                const drawResult = await player
-                    .chooseBool()
-                    .set("prompt", get.prompt("ycc_yuce"))
-                    .set("prompt2", "你可以摸两张牌")
-                    .set("ai", () => true)
+            if (event.triggername === "phaseJieshuEnd") {
+                const result = await player.chooseCard("h", [1, Infinity],
+                    (card, player) => player.canRecast(card, player),
+                    "御策：重铸任意张手牌，若重铸全部手牌则额外摸一张")
+                    .set("nihilCanCancel", true)
+                    .set("ai", yccYuceRecastScore)
                     .forResult();
-
-                if (drawResult.bool) {
+                if (result.bool && result.cards?.length) {
+                    const all = result.cards.length === player.countCards("h");
                     player.logSkill("ycc_yuce");
-                    await player.draw(2);
+                    await player.recast(result.cards);
+                    if (all && player.isIn()) await player.draw(1);
                 }
+                return;
             }
 
-            if (isMax) {
-                const shaCard = { name: "sha", isCard: true };
-                // 人类玩家只受规则合法性限制；不能让通用 AI 收益门槛吞掉技能提示。
-                if (player.hasUseTarget(shaCard)) {
-                    const shaResult = await player
-                        .chooseBool()
-                        .set("prompt", get.prompt("ycc_yuce"))
-                        .set("prompt2", "你可以视为使用一张【杀】")
-                        .set("ai", () => yccYuceHasEnemyShaTarget(player))
-                        .forResult();
+            const draw = event.triggername === "phaseDiscardEnd";
+            const result = await player
+                .chooseBool()
+                .set("prompt", get.prompt("ycc_yuce"))
+                .set("prompt2", draw ? "你可以摸两张牌" : "你可以视为使用一张【杀】")
+                .set("ai", () => draw || yccYuceHasEnemyShaTarget(player))
+                .forResult();
+            if (!result.bool) return;
 
-                    if (shaResult.bool) {
-                        player.logSkill("ycc_yuce");
-                        await player.chooseUseTarget(shaCard, true, false)
-                            .set("ai", target => yccYuceTargetScore(player, target))
-                            .set("logSkill", "ycc_yuce");
-                    }
-                }
+            if (draw) {
+                player.logSkill("ycc_yuce");
+                await player.draw(2);
+            } else {
+                await player.chooseUseTarget({ name: "sha", isCard: true }, false)
+                    .set("ai", target => yccYuceTargetScore(player, target))
+                    .set("logSkill", "ycc_yuce");
             }
         },
     },
 
-    // 亲征 (limited skill)
     ycc_qinzheng: {
         audio: 2,
-        enable: "phaseUse",
+        trigger: { player: "phaseZhunbeiBegin" },
         limited: true,
+        mark: false,
+        skillAnimation: true,
         group: "ycc_qinzheng_watch",
+        derivation: "ycc_longji",
         filter(event, player) {
-            return player.hasSkill("ycc_huangming", null, null, false);
+            return !player.awakenedSkills.includes("ycc_qinzheng");
+        },
+        check(event, player) {
+            return yccQinzhengShouldUse(player);
         },
         async content(event, trigger, player) {
-            player.awakenSkill(event.name);
+            player.awakenSkill("ycc_qinzheng");
             await player.loseMaxHp();
             player.removeSkill("ycc_huangming");
-            player.addSkill("ycc_handlimit");
-            player.addSkill("ycc_longji");
-            semanticLog("#g亲征", "：", player, "失去【皇命】，获得【龙殛】，手牌上限+1");
+            if (player.isIn()) {
+                player.addSkill("ycc_handlimit");
+                player.addSkill("ycc_longji");
+                player.changeSkin?.({ characterName: "ycc_yuchengchen" }, QINZHENG_SKIN);
+                semanticLog("#g亲征", "：", player, "失去【皇命】，获得【龙殛】，手牌上限+1");
+            }
             delete player.storage.ycc_qinzheng_no_support;
             delete player.storage.ycc_qinzheng_watch_round;
-        },
-        ai: {
-            order(item, player) {
-                return yccQinzhengShouldUse(player) ? 10 : -1;
-            },
-            result: {
-                player(player) {
-                    return yccQinzhengShouldUse(player) ? 3 : -1;
-                },
-            },
         },
     },
 
@@ -529,7 +733,7 @@ ycc_huangming: {
         forced: true,
         popup: false,
         filter(event, player) {
-            return player.hasSkill("ycc_qinzheng", null, null, false) && player.hasSkill("ycc_huangming", null, null, false);
+            return !player.awakenedSkills.includes("ycc_qinzheng");
         },
         async content(event, trigger, player) {
             yccQinzhengUpdateWatch(player);
@@ -542,6 +746,10 @@ ycc_huangming: {
     // 亲征 -> 手牌上限 +1 (permanent, independent skill)
     ycc_handlimit: {
         charlotte: true,
+        mark: true,
+        marktext: "征",
+        markimage: MARK_PATH + "ycc_qinzheng.png",
+        intro: { content: "你的手牌上限+1。" },
         mod: {
             maxHandcard(player, num) {
                 return num + 1;
@@ -549,118 +757,141 @@ ycc_huangming: {
         },
     },
 
-    // 龙殛
     ycc_longji: {
         audio: 2,
         trigger: { player: "useCardToPlayered" },
         forced: true,
+        logTarget: "target",
         filter(event, player) {
-            if (!event.card || event.card.name !== "sha") return false;
-            return true;
+            return event.card?.name === "sha" && event.target !== player &&
+                event.target.isIn() && event.target.countCards("h") > 0;
         },
         async content(event, trigger, player) {
             const target = trigger.target;
-            if (!target || !target.isIn()) return;
-            if (!player.isIn()) return;
-
-            // Must show all hand cards
             await target.showHandcards(get.translation(target) + "是" + get.translation(player) + "【杀】的目标，须展示所有手牌");
+            if (!target.isIn() || !player.isIn() || !target.countGainableCards(player, "h")) return;
 
-            const cards = target.getCards("h");
-            if (!cards.length) return;
-
-            // Yuchenchen (player) selects one card to detain
-            const result = await player
-                .choosePlayerCard(target, "h", true, "visible", [1, 1])
-                .set("prompt", "龙殛：选择扣置" + get.translation(target) + "的一张手牌")
+            await player.gainPlayerCard(target, "h", true, "visible")
+                .set("prompt", "龙殛：获得" + get.translation(target) + "的一张手牌")
                 .set("ai", button => {
-                    // Take the most valuable card from enemies, least valuable from allies
-                    const val = get.value(button.link);
-                    if (get.attitude(player, target) > 0) return -val;
-                    return val;
-                })
-                .forResult();
-
-            if (!result.bool || !result.cards.length) return;
-
-            // Place card in target's own expansion
-            const next = target.addToExpansion(result.cards, player, "give");
-            next.gaintag = ["ycc_longji"];
-            semanticLog("#g龙殛", "：", player, "扣置了", target, "的一张手牌至回合结束");
-
-            // Ensure the return sub-skill is active on source (Yuchenchen)
-            if (!player.hasSkill("ycc_longji_return", null, null, false)) {
-                player.addSkill("ycc_longji_return");
-            }
-        },
-        onremove(player, skill) {
-            // When 龙殛 is removed, return all detained cards to their owners
-            const targets = game.filterPlayer(t => t.getExpansions("ycc_longji").length > 0);
-            for (const target of targets) {
-                const cards = target.getExpansions("ycc_longji");
-                if (cards.length > 0) {
-                    if (target.isIn() && !target.isDead()) {
-                        target.gain(cards, "gain2");
-                    } else {
-                        game.cardsDiscard(cards);
-                    }
-                }
-            }
-        },
-        subSkill: {
-            return: {
-                charlotte: true,
-                trigger: { global: "phaseAfter" },
-                forced: true,
-                filter(event, player) {
-                    // Check if any player has ycc_longji expansion cards to return
-                    return game.hasPlayer(t => t.getExpansions("ycc_longji").length > 0);
-                },
-                async content(event, trigger, player) {
-                    // Return detained cards for each target, separately
-                    const targets = game.filterPlayer(t => t.getExpansions("ycc_longji").length > 0);
-                    for (const target of targets) {
-                        const cards = target.getExpansions("ycc_longji");
-                        if (cards.length > 0 && target.isIn() && !target.isDead()) {
-                            await target.gain(cards, "gain2");
-                            game.log(target, "收回了被【龙殛】扣置的牌");
-                        } else if (cards.length > 0) {
-                            game.cardsDiscard(cards);
-                        }
-                    }
-                },
-            },
+                    const request = get.event();
+                    const value = get.value(button.link, request.target);
+                    return get.attitude(request.player, request.target) > 0 ? -value : value;
+                });
         },
     },
 
-    
+    ycc_lixing: {
+        audio: 2,
+        zhuSkill: true,
+        usable: 1,
+        trigger: { player: ["useSkill", "logSkillBegin"] },
+        getIndex(event, player) {
+            const info = get.info(event.skill);
+            if (!event.targets?.length || !info || info.charlotte || info.equipSkill ||
+                event.type === "equip" || event.type === "global" || event.skill === "ycc_lixing") {
+                return [];
+            }
+
+            // 主动技已经通过 useSkill 记录自己的目标。只补充技能日志里的新目标。
+            const active = event.log_event?.getParent("useSkill", true, true);
+            const source = event.sourceSkill || info.sourceSkill || event.skill;
+            const activeSource = active && (get.info(active.skill)?.sourceSkill || active.skill);
+            const loggedTargets = activeSource === source ? active?.targets : [];
+            return [...new Set(event.targets)].filter(target =>
+                target !== player && !loggedTargets?.includes(target));
+        },
+        filter(event, player, triggerName, target) {
+            return player.isZhu2() && target?.isIn() &&
+                target.countCards("h", card => !card.hasGaintag(LIXING_SHA)) > 0;
+        },
+        async cost(event, trigger, player) {
+            const target = event.indexedData;
+            const result = await player.choosePlayerCard(target, "h", 1,
+                "历行：选择" + get.translation(target) + "的一张手牌，本回合视为【杀】")
+                .set("nihilCanCancel", true)
+                .set("filterButton", button => !button.link.hasGaintag("ycc_lixing_sha"))
+                .set("ai", button => {
+                    const request = get.event();
+                    const target = request.target;
+                    const attitude = get.attitude(request.player, target);
+                    const value = get.buttonValue(button);
+                    if (attitude < 0) return Math.max(1, value);
+                    if (request.lixingSource === "ycc_huangming" && yccPlanningYuce(request.player) && yccYuceHasEnemyShaTarget(request.player) &&
+                        yccDiscardSecuresMax(request.player, target, request.player.countCards("h"))) return 0;
+                    if (attitude > 0 && request.lixingSource === "ycc_huangming") return 1 / (1 + Math.max(0, value));
+                    return 0;
+                })
+                .set("lixingSource", trigger.skill)
+                .forResult();
+            if (result?.bool && result.cards?.length) {
+                event.result = { bool: true, cards: result.cards, targets: [target] };
+            }
+        },
+        async content(event) {
+            const [target] = event.targets;
+            if (!target.isIn()) return;
+            const cards = target.getCards("h", card => event.cards.includes(card));
+            if (!cards.length) return;
+            target.addTempSkill(LIXING_SHA);
+            target.addGaintag(cards, LIXING_SHA);
+        },
+    },
+
+    ycc_lixing_sha: {
+        charlotte: true,
+        mod: {
+            cardname(card) {
+                if (get.itemtype(card) === "card" && card.hasGaintag(LIXING_SHA)) return "sha";
+            },
+            cardnature(card) {
+                if (get.itemtype(card) === "card" && card.hasGaintag(LIXING_SHA)) return false;
+            },
+            aiOrder(player, card, num) {
+                if (get.itemtype(card) === "card" && card.hasGaintag(LIXING_SHA)) return num + 1;
+            },
+            aiUseful(player, card) {
+                if (_status.event.name === "chooseToRespond" && get.itemtype(card) === "card" && card.hasGaintag(LIXING_SHA)) return -1;
+            },
+        },
+        onremove(player) {
+            player.removeGaintag(LIXING_SHA);
+        },
+    },
 };
 
 var title = {
-    ycc_yuchengchen: "#g瑞武帝",
+    ycc_yuchengchen: "#g妖帝",
 };
 
 var translates = {
-ycc_yuchengchen: "御承宸",
-    ycc_yuchengchen_prefix: "ycc",
+    ycc_yuchengchen: "瑞",
     ycc_huangming: "皇命",
-    ycc_huangming_info: "当你使用【杀】结算完成后，你可以令一名其他角色对该目标使用一张【杀】（无视距离限制）。若其使用了【杀】，你交给其一张手牌（没有则不交）；若其未使用【杀】（包括无法出杀、出杀技能失败或主动选择被弃牌），你弃置其一张牌。",
+    ycc_huangming_info: "你使用的【杀】结算后，你可以令一名未被此【杀】指定的其他角色选择一项：对你此【杀】的一名目标使用一张【杀】（无距离限制），然后摸一张牌；或由你弃置其一张手牌或装备牌。",
     ycc_yuce: "御策",
-    ycc_yuce_info: "出牌阶段结束时，若你手牌数为全场最高，你可以视为使用一张【杀】；若你手牌数为全场最低，你可以摸两张牌。",
+    ycc_yuce_info: "出牌阶段结束时，若你的手牌数为全场最高，你可以视为使用一张【杀】。弃牌阶段结束时，若你的手牌数为全场最低，你可以摸两张牌。结束阶段结束时，若你的手牌数既非全场最高也非全场最低，你可以重铸任意张手牌，若重铸了全部手牌，则额外摸一张牌。",
     ycc_qinzheng: "亲征",
-    ycc_qinzheng_info: "限定技，出牌阶段，你可以失去一点体力上限和【皇命】，手牌上限+1，获得【龙殛】。",
+    ycc_qinzheng_info: "限定技，准备阶段，你可以减1点体力上限并失去【皇命】，然后手牌上限+1并获得【龙殛】。",
     ycc_longji: "龙殛",
-    ycc_longji_info: "当一名角色成为你【杀】的目标时，其必须展示所有手牌，然后你扣置其一张手牌直到本回合结束。",
+    ycc_longji_info: "其他角色成为你【杀】的目标时，其展示所有手牌，然后你获得其中一张。",
     ycc_handlimit: "亲征",
     ycc_handlimit_info: "你的手牌上限+1。",
-
-
+    ycc_lixing: "历行",
+    ycc_lixing_sha: "历行",
+    ycc_lixing_info: "主公技，每回合限一次，当其他角色成为你发动的技能的目标时，你可以令其一张手牌于本回合视为【杀】。",
 };
 
 var sort = ["ycc_yuchengchen"];
 
 window.nihilModules["ycc"] = {
+    init: installLixingCardIcon,
+    removalBonus: yccRemovalBonus,
     character: character,
+    characterSubstitute: {
+        ycc_yuchengchen: [
+            [QINZHENG_SKIN, ["img:" + image(QINZHENG_SKIN), "die:ycc_yuchengchen", "tempname:ycc_yuchengchen"]],
+        ],
+    },
     skill: skills,
     translate: translates,
     title: title,

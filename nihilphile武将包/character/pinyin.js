@@ -1,6 +1,8 @@
 (function () {
     window.nihilPinyins = {
         tia_tiya: ["ti", "ya"],
+        ycc_yuchengchen: ["rui"],
+        nihil_zhao: ["zhao"],
         nihil_guanyu: ["guan", "yu"],
         nihil_binglangwei: ["bing", "lang", "wei"],
         nihil_moxuluo: ["mo", "xu", "luo"],

@@ -12,6 +12,7 @@ game.import("character", function (lib, game, ui, get, ai, _status) {
     };
     var characterTitle = {};
     var characterIntro = {};
+    var characterSubstitute = {};
     var pinyins = {};
     var mainList = [];
 
@@ -30,6 +31,7 @@ game.import("character", function (lib, game, ui, get, ai, _status) {
         if (mod.card) Object.assign(card, mod.card);
         if (mod.translate) Object.assign(translate, mod.translate);
         if (mod.title) Object.assign(characterTitle, mod.title);
+        if (mod.characterSubstitute) Object.assign(characterSubstitute, mod.characterSubstitute);
         if (Array.isArray(mod.sort)) {
             for (var j = 0; j < mod.sort.length; j++) {
                 mainList.push(mod.sort[j]);
@@ -50,6 +52,7 @@ game.import("character", function (lib, game, ui, get, ai, _status) {
         translate: translate,
         characterTitle: characterTitle,
         characterIntro: characterIntro,
+        characterSubstitute: characterSubstitute,
         characterSort: {
             nihilphile: {
                 nihilphile_main: mainList,

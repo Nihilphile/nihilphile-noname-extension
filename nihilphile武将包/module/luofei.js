@@ -366,6 +366,7 @@
             forced: true,
             mark: true,
             marktext: "血",
+            markimage: "extension/" + EXT_NAME + "/image/mark/luofei_blood.png",
             intro: {
                 name: "血",
                 content: "mark",
@@ -688,6 +689,7 @@
         nihil_liusheng_state_sheng: {
             charlotte: true,
             marktext: "生",
+            markimage: "extension/" + EXT_NAME + "/image/mark/luofei_sheng.png",
             intro: {
                 name: "流生：生",
                 content: "若此时发动【流生】且判定为红色，目标将回复1点体力。",
@@ -696,6 +698,7 @@
         nihil_liusheng_state_xi: {
             charlotte: true,
             marktext: "息",
+            markimage: "extension/" + EXT_NAME + "/image/mark/luofei_xi.png",
             intro: {
                 name: "流生：息",
                 content: "若此时发动【流生】且判定为红色，目标将失去1点体力。",

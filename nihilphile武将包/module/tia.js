@@ -645,6 +645,7 @@ tia_ammo: {
         charlotte: true,
         mark: true,
         marktext: "弹",
+        markimage: "extension/" + EXT_NAME + "/image/mark/tia_ammo.png",
         intro: {
             markcount(storage, player) {
                 return getAmmo(player).length;

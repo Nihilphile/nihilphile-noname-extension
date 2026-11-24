@@ -90,6 +90,7 @@
             charlotte: true,
             mark: true,
             marktext: "封",
+            markimage: "extension/" + EXT_NAME + "/image/mark/mabaoguo_seal.png",
             intro: { content: function (storage) {
                 return "本回合失效：" + (storage || []).map(function (skill) { return get.translation(skill); }).join("、");
             } },
@@ -102,6 +103,7 @@
             trigger: { global: "phaseBegin" },
             direct: true,
             marktext: "元",
+            markimage: "extension/" + EXT_NAME + "/image/mark/mabaoguo_hunyuan.png",
             intro: { name: "混元", name2: "混元", content: "mark" },
             group: "nihil_touxi_hurt",
             filter: function (event, player) {
