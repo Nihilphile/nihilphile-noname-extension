@@ -66,18 +66,11 @@ jobs:
           echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
           echo "archive=Nihilphile-$tag.zip" >> "$GITHUB_OUTPUT"
 
-      - name: Run JavaScript tests
+      - name: Run portable JavaScript tests
         shell: bash
         run: |
           set -euo pipefail
-          if compgen -G 'tests/*.js' > /dev/null; then
-            for test_file in tests/*.js; do
-              echo "RUN $test_file"
-              node "$test_file"
-            done
-          else
-            echo "No JavaScript tests are present in this revision"
-          fi
+          node scripts/test_portable.cjs
 
       - name: Check extension JavaScript syntax
         shell: bash

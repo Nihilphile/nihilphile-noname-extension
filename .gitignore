@@ -4,3 +4,27 @@
 # OS files
 .DS_Store
 Thumbs.db
+
+# Local work state and generated evidence
+/.audit/
+/.pi/
+/.serena/
+/.task-graph/
+/backup/
+/artifacts/
+/reports/
+/dist/
+/docs/evidence/
+/docs/nihil-catalog/
+/doc/taskboard/
+*.log
+node_modules/
+__pycache__/
+*.pyc
+
+# Keep the frozen reference consumed by the main-package regression tests
+/luofei-benchmark/*
+!/luofei-benchmark/design/
+/luofei-benchmark/design/*
+!/luofei-benchmark/design/challenge-winner.cjs
+/luofei-benchmark-v1.1/

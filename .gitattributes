@@ -1,0 +1,4 @@
+# Runtime and test fixtures contain byte-level source/hash assertions.
+/nihilphile武将包/** -text
+/tests/** -text
+/luofei-benchmark/design/challenge-winner.cjs -text

@@ -1,0 +1,10 @@
+[Unit]
+Description=Check the published Nihil branch
+
+[Timer]
+OnBootSec=30s
+OnUnitInactiveSec=60s
+AccuracySec=5s
+
+[Install]
+WantedBy=timers.target

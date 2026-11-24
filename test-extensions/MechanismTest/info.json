@@ -1,0 +1,9 @@
+{
+  "name": "MechanismTest",
+  "author": "Nihilphile testing",
+  "version": "0.2.0",
+  "connect": true,
+  "intro": "独立的联机场景准备测试武将；不属于任何正式武将包。",
+  "diskURL": "",
+  "forumURL": ""
+}
